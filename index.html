@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#dff3f2" />
+    <title>USEFULL onboarding prototype</title>
+    <link rel="icon" href="branding/USEFULL-icons/icon-192.png" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/picturepan2/devices.css@master/dist/devices.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="prototype-shell">
+      <div class="prototype-heading">
+        <div>
+          <p class="eyebrow">Interactive onboarding prototype</p>
+          <h1>USEFULL</h1>
+        </div>
+        <button class="reset-button" id="resetPrototype" type="button">Restart flow</button>
+      </div>
+
+      <div class="device-stage">
+        <section class="device device-iphone-x iphone" aria-label="USEFULL app preview">
+          <div class="device-frame">
+            <div class="device-screen phone-screen" id="app" aria-live="polite"></div>
+          </div>
+          <div class="device-stripe" aria-hidden="true"></div>
+          <div class="device-header" aria-hidden="true"></div>
+          <div class="device-sensors" aria-hidden="true"></div>
+          <div class="device-btns" aria-hidden="true"></div>
+          <div class="device-power" aria-hidden="true"></div>
+        </section>
+      </div>
+
+      <p class="prototype-note">Choose a community, then try any of the available sign-in paths.</p>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
