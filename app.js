@@ -22,6 +22,8 @@ const state = {
   acceptedTerms: false,
   email: '',
   name: '',
+  firstName: '',
+  lastName: '',
   password: '',
   affiliation: 'Student',
   graduationYear: '',
@@ -32,15 +34,25 @@ const state = {
   authMode: 'signup',
   returningEmail: '',
   returningPassword: '',
+  returningSource: '',
+  accountLookupEmail: '',
+  accountLookupPhone: '',
+  accountLookupResult: '',
   returningPhoneExists: true,
   otpEntryCorrect: true,
   allowEmailNotifications: true,
   notificationSmsSelected: true,
   notificationEmailSelected: false,
   notificationEmail: '',
+  notificationPhoneSelected: false,
+  notificationPhone: '',
+  notificationContext: 'signup',
   transactionalAccepted: false,
   consentOpen: false,
   settingsOpen: false,
+  testerHidden: false,
+  askAffiliationDetails: false,
+  guidedSignup: true,
   sheet: null
 };
 
@@ -53,8 +65,6 @@ const backHeader = (label = 'Back') => `
     <button class="back-link" data-action="back" type="button"><span class="chevron">‹</span>${label}</button>
     ${logo(true)}
   </div>`;
-
-const tip = () => `<div class="card tip-card"><span class="bolt">ϟ</span><p>Don't worry — no matter which community you select, you'll be able to checkout a container at any USEFULL community.</p></div>`;
 
 const progressHeader = (step) => {
   const labels = ['Community', 'User', 'Details', 'Payment Method'];
@@ -89,6 +99,16 @@ function canContinueConsent() {
   return state.notificationSmsSelected || (state.notificationEmailSelected && isValidEmail(state.notificationEmail));
 }
 
+function canSaveNotificationSettings() {
+  const emailValid = !state.notificationEmailSelected || isValidEmail(state.notificationEmail);
+  const phoneValid = !state.notificationPhoneSelected || state.notificationPhone.replace(/\D/g, '').length === 10;
+  return emailValid && phoneValid;
+}
+
+function continueAfterIdentity() {
+  return go(state.askAffiliationDetails ? 'affiliation' : 'payment');
+}
+
 function lineIcon(name) {
   const icons = {
     home: '<path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-9Z"/><path d="M9 21v-7h6v7"/>',
@@ -119,11 +139,17 @@ function preserveFormDrafts() {
   const returningEmail = document.querySelector('#returning-email');
   const returningPassword = document.querySelector('#returning-password');
   const notificationEmail = document.querySelector('#notification-email');
+  const notificationPhone = document.querySelector('#notification-phone');
+  const accountLookupEmail = document.querySelector('#account-lookup-email');
+  const accountLookupPhone = document.querySelector('#account-lookup-phone');
   if (phone) state.phone = phone.value.replace(/\D/g, '').slice(0, 10);
   if (otp) state.otp = otp.value.replace(/\D/g, '').slice(0, 6);
   if (returningEmail) state.returningEmail = returningEmail.value;
   if (returningPassword) state.returningPassword = returningPassword.value;
   if (notificationEmail) state.notificationEmail = notificationEmail.value;
+  if (notificationPhone) state.notificationPhone = notificationPhone.value.replace(/\D/g, '').slice(0, 10);
+  if (accountLookupEmail) state.accountLookupEmail = accountLookupEmail.value;
+  if (accountLookupPhone) state.accountLookupPhone = accountLookupPhone.value.replace(/\D/g, '').slice(0, 10);
 }
 
 function renderCommunity() {
@@ -131,9 +157,85 @@ function renderCommunity() {
     <section class="card start-card">
       <h2>Where do you use USEFULL?</h2>
       <button class="select-trigger" data-sheet="community" type="button"><span>${state.community}</span><span>▼</span></button>
-      <button class="button button-primary" data-go="method" type="button">Let's go</button>
+      <button class="button button-primary" data-action="begin-onboarding" type="button">Let's go</button>
       <p class="login-copy">Already have an account? <button class="text-link" data-action="returning-login" type="button">Log in</button></p>
-    </section>${tip()}${renderSheet()}</div>`;
+    </section>${renderSheet()}</div>`;
+}
+
+function cardIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 9h19M6 15h5"/></svg>`;
+}
+
+function renderCuAccountCheck() {
+  return `<div class="screen cu-branch-screen">${statusBar()}${backHeader('Community')}
+    <section class="card cu-branch-card">
+      <p class="branch-eyebrow">CU Boulder</p>
+      <h2>Have you checked out with USEFULL before?</h2>
+      <p class="branch-lead">You may already have an account if you used a campus checkout kiosk.</p>
+      <div class="branch-choices">
+        <button class="branch-choice branch-choice-kiosk" data-action="cu-checked-out" type="button">
+          <img src="branding/interface-icons/checkout-station-kiosk.png" alt="" />
+          <span><strong>Yes, at a kiosk</strong><small>Help me find the account I made there</small></span><b aria-hidden="true">›</b>
+        </button>
+        <button class="branch-choice" data-action="cu-first-time" type="button">
+          <span class="branch-choice-icon branch-choice-icon-new" aria-hidden="true">1</span>
+          <span><strong>No, this is my first time</strong><small>Set up a new USEFULL account</small></span><b aria-hidden="true">›</b>
+        </button>
+      </div>
+      <button class="text-link branch-unsure" data-action="cu-unsure" type="button">I’m not sure</button>
+    </section>
+  </div>`;
+}
+
+function renderCuCheckoutMethod() {
+  return `<div class="screen cu-branch-screen">${statusBar()}${backHeader()}
+    <section class="card cu-branch-card cu-payment-card">
+      <p class="branch-eyebrow">Find your account</p>
+      <h2>How did you check out?</h2>
+      <p class="branch-lead">Choose what you used at the kiosk so we can take you to the right sign-in.</p>
+      <div class="branch-choices">
+        <button class="branch-choice" data-action="cu-used-buff-card" type="button">
+          <span class="branch-choice-icon branch-choice-icon-buff">${graduationIcon()}</span>
+          <span><strong>Buff OneCard</strong><small>Use your CU Boulder sign-in</small></span><b aria-hidden="true">›</b>
+        </button>
+        <button class="branch-choice" data-action="cu-used-bank-card" type="button">
+          <span class="branch-choice-icon">${cardIcon()}</span>
+          <span><strong>Debit or credit card</strong><small>Find your account by mobile number</small></span><b aria-hidden="true">›</b>
+        </button>
+      </div>
+      <button class="text-link branch-unsure" data-action="cu-unsure" type="button">I don’t remember</button>
+    </section>
+  </div>`;
+}
+
+function renderCuSso() {
+  return `<div class="screen nau-screen cu-login-screen">${statusBar()}${backHeader()}
+    <section class="nau-panel cu-login-panel"><p class="nau-wordmark cu-wordmark">CU<small>UNIVERSITY OF<br>COLORADO BOULDER</small></p>
+      <label for="cu-id">Username</label><input class="text-input" id="cu-id" value="bsmith" autocomplete="username" />
+      <label for="cu-password">Password</label><input class="text-input" id="cu-password" type="password" value="password" autocomplete="current-password" />
+      <button class="button" data-action="cu-sso-signin" type="button">Sign in</button>
+      <div class="nau-help cu-help"><span>Forgot your password?</span><span>Need help?</span></div>
+    </section></div>`;
+}
+
+function renderAccountFinder() {
+  const result = state.accountLookupResult;
+  const resultModal = result === 'email'
+    ? `<div class="modal-backdrop"></div><section class="account-result-modal" role="dialog" aria-modal="true" aria-labelledby="account-result-title"><span class="result-check">✓</span><h2 id="account-result-title">We found your account</h2><p>Your USEFULL account is connected to</p><strong>bsmith@colorado.edu</strong><button class="button cu-result-button" data-action="account-found-email" type="button">Sign in with CU Boulder</button><button class="text-link" data-action="close-account-result" type="button">Try something else</button></section>`
+    : result === 'phone'
+      ? `<div class="modal-backdrop"></div><section class="account-result-modal" role="dialog" aria-modal="true" aria-labelledby="account-result-title"><span class="result-check">✓</span><h2 id="account-result-title">We found your account</h2><p>Your USEFULL account is connected to</p><strong>${escapeHTML(formatPhone(state.accountLookupPhone))}</strong><button class="button button-primary" data-action="account-found-phone" type="button">Send me a code</button><button class="text-link" data-action="close-account-result" type="button">Try something else</button></section>`
+      : '';
+  return `<div class="screen account-finder-screen">${statusBar()}${backHeader()}
+    <section class="card account-finder-card"><p class="branch-eyebrow">Account recovery</p><h2>Let’s find your account</h2>
+      <p class="auth-lead">We’ll search by email first. If there’s no match, we’ll try your mobile number.</p>
+      <label class="field-label" for="account-lookup-email">Email address</label>
+      <input class="text-input" id="account-lookup-email" type="email" value="${escapeHTML(state.accountLookupEmail)}" placeholder="name@colorado.edu" autocomplete="email" />
+      <div class="finder-divider"><span>then, if needed</span></div>
+      <label class="field-label" for="account-lookup-phone">Mobile number</label>
+      <input class="text-input phone-input" id="account-lookup-phone" type="tel" inputmode="tel" value="${escapeHTML(formatPhone(state.accountLookupPhone))}" placeholder="(303) 555-0123" autocomplete="tel" />
+      <p class="error-copy" id="account-lookup-error"></p>
+      <button class="button button-primary" data-action="search-account" type="button">Search for my account</button>
+    </section>${resultModal}</div>`;
 }
 
 function renderMethod() {
@@ -150,15 +252,26 @@ function renderMethod() {
     : `<button class="button button-outline method-button" data-method="google" type="button"><span>Sign in with Google</span><span class="method-icon">${googleIcon()}</span></button>
        <button class="button button-apple method-button" data-method="apple" type="button"><span>Sign in with Apple</span><span class="method-icon">${appleIcon()}</span></button>
        <button class="button button-primary method-button" data-method="email" type="button"><span>Sign in with email</span><span class="method-icon">✉</span></button>`;
+  const guidedMethods = `<div class="guided-methods">
+    <button class="guided-method guided-method-buff" data-method="cu" type="button"><span class="guided-method-icon">${graduationIcon()}</span><span><strong>Use my Buff OneCard</strong><small>Sign up with your CU Boulder login</small></span><b aria-hidden="true">›</b></button>
+    <button class="guided-method guided-method-bank" data-method="sms" type="button"><span class="guided-method-icon">${cardIcon()}</span><span><strong>Use a debit or credit card</strong><small>Sign up with your mobile number</small></span><b aria-hidden="true">›</b></button>
+    <div class="divider">or choose another method</div>
+    <div class="compact-methods">
+      <button data-method="email" type="button"><span>✉</span>Email</button>
+      <button data-method="google" type="button">${googleIcon()}<span>Google</span></button>
+      <button data-method="apple" type="button">${appleIcon()}<span>Apple</span></button>
+    </div>
+  </div>`;
   return `<div class="screen">${statusBar()}${backHeader('Start page')}
-    <section class="card method-card ${isCU() ? 'method-card-cu' : ''}"><h2>Easily sign in${state.community.includes('Northern Arizona') ? ' with NAU!' : isCU() ? ' at CU Boulder!' : ''}</h2>
+    <section class="card method-card ${isCU() ? 'method-card-cu' : ''} ${isCU() && state.guidedSignup ? 'guided-method-card' : ''}"><h2>${isCU() && state.guidedSignup ? 'How will you check out?' : `Easily sign in${state.community.includes('Northern Arizona') ? ' with NAU!' : isCU() ? ' at CU Boulder!' : ''}`}</h2>
+      ${isCU() && state.guidedSignup ? '<p class="guided-lead">Choose the payment method you plan to use most often.</p>' : ''}
       <div class="terms-row"><button class="checkbox ${state.acceptedTerms ? 'checked' : ''}" data-action="terms" type="button" aria-label="Agree to terms">${state.acceptedTerms ? '<svg viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg>' : ''}</button><span>I agree to USEFULL's <a href="#" data-action="terms-link">Terms of Service</a> and <a href="#" data-action="terms-link">Privacy Policy</a></span></div>
-      <div class="method-stack">
+      ${isCU() && state.guidedSignup ? guidedMethods : `<div class="method-stack">
         ${institutionButton}
         <div class="divider">or choose another method</div>
         ${standardMethods}
-      </div>
-    </section>${tip()}</div>`;
+      </div>`}
+    </section></div>`;
 }
 
 function renderSMS() {
@@ -189,7 +302,7 @@ function renderReturningLogin() {
       <div class="method-stack">${returningMethodButtons()}
         <button class="button button-teal method-button" data-action="returning-sms" type="button"><span>Sign in with SMS</span><span class="method-icon sms-method-icon">${phoneIcon()}</span></button>
       </div>
-    </section>${tip()}</div>`;
+    </section></div>`;
 }
 
 function renderReturningPassword() {
@@ -204,13 +317,14 @@ function renderReturningPassword() {
       <div class="method-stack">${returningMethodButtons()}
         <button class="button button-teal method-button" data-action="returning-sms" type="button"><span>Sign in with SMS</span><span class="method-icon sms-method-icon">${phoneIcon()}</span></button>
       </div>
-    </section>${tip()}</div>`;
+    </section></div>`;
 }
 
 function renderReturningSMS() {
+  const kioskRecovery = state.returningSource === 'cu-bank-card';
   return `<div class="screen sms-screen returning-login-screen">${statusBar()}${backHeader()}
-    <section class="card sms-card returning-sms-card"><h2>Sign in with SMS</h2>
-      <p class="auth-lead">Enter your mobile number. We'll send a one-time code to sign in to your existing account.</p>
+    <section class="card sms-card returning-sms-card"><h2>${kioskRecovery ? 'Find your kiosk account' : 'Sign in with SMS'}</h2>
+      <p class="auth-lead">${kioskRecovery ? 'Enter the mobile number you used at checkout. We’ll text you a code to reconnect your account.' : "Enter your mobile number. We'll send a one-time code to sign in to your existing account."}</p>
       <label class="field-label" for="returning-phone">Mobile number</label>
       <input class="text-input phone-input" id="returning-phone" type="tel" inputmode="tel" autocomplete="tel" value="${escapeHTML(formatPhone(state.phone))}" placeholder="(303) 555-0123" />
       <p class="error-copy" id="returning-phone-error"></p>
@@ -237,8 +351,7 @@ function renderSmsProfile() {
     <section class="card sms-card profile-card"><h2>Tell us about yourself</h2>
       <p class="auth-lead">Your phone is verified. Add your name to finish creating your account.</p>
       <div class="verified-phone"><span>Verified phone</span><strong>${escapeHTML(formatPhone(state.phone))}</strong></div>
-      <label class="field-label" for="sms-name">Full name</label>
-      <input class="text-input" id="sms-name" autocomplete="name" value="${escapeHTML(state.name)}" placeholder="Full name" />
+      <div class="profile-name-grid"><div><label class="field-label" for="sms-first-name">First name</label><input class="text-input" id="sms-first-name" autocomplete="given-name" value="${escapeHTML(state.firstName)}" placeholder="First name" /></div><div><label class="field-label" for="sms-last-name">Last name</label><input class="text-input" id="sms-last-name" autocomplete="family-name" value="${escapeHTML(state.lastName)}" placeholder="Last name" /></div></div>
       <p class="error-copy" id="sms-profile-error"></p>
       <button class="button button-primary" data-action="sms-profile-continue" type="button">Continue</button>
     </section></div>`;
@@ -294,20 +407,26 @@ function renderDetails() {
 }
 
 function renderPayment() {
-  return `<div class="screen payment-screen">${statusBar()}${progressHeader(4)}
+  const showStepper = state.askAffiliationDetails && !isCU();
+  const communityPayment = isCU()
+    ? '<button class="button button-primary" data-payment="Boulder BuffCard" type="button">Boulder BuffCard</button><div class="divider">or choose another method</div>'
+    : state.community.includes('Northern Arizona')
+      ? '<button class="button button-primary" data-payment="NAU Dining Dollars" type="button">NAU Dining Dollars</button><div class="divider">or choose another method</div>'
+      : '';
+  return `<div class="screen payment-screen ${showStepper ? '' : 'payment-screen-simple'}">${statusBar()}${showStepper ? progressHeader(4) : backHeader()}
     <section class="card"><h2>Great news!<br>USEFULL is free to use.</h2><p class="lead">We do require a card on file for late and lost fees. Add a payment method to get started!</p>
       <div class="payment-stack">
-        ${state.community.includes('Northern Arizona') ? '<button class="button button-primary" data-payment="NAU Dining Dollars" type="button">NAU Dining Dollars</button>' : ''}
-        <div class="divider">or choose another method</div>
+        ${communityPayment}
         <button class="button button-soft" data-payment="Credit Card" type="button">Credit card</button>
-        <button class="button button-apple" data-payment="Apple Pay" type="button"><span class="method-icon">●</span>Pay</button>
+        <button class="button button-apple" data-payment="Apple Pay" type="button"><span class="method-icon">${appleIcon()}</span>Apple Pay</button>
         <button class="button button-muted" data-action="back" type="button"><span class="arrow">‹</span> Back</button>
       </div>
     </section></div>`;
 }
 
 function renderConfirm() {
-  return `<div class="screen">${statusBar()}${progressHeader(4)}
+  const showStepper = state.askAffiliationDetails && !isCU();
+  return `<div class="screen ${showStepper ? '' : 'confirm-screen-simple'}">${statusBar()}${showStepper ? progressHeader(4) : backHeader()}
     <section class="card confirm-card"><h2>Confirm your payment method</h2>
       <div class="summary"><div class="summary-row"><span>Community</span><strong>${state.community}</strong></div><div class="summary-row"><span>Payment</span><strong>${state.payment}</strong></div></div>
       <div class="button-row"><button class="button button-muted" data-action="back" type="button"><span class="arrow">‹</span> Back</button><button class="button button-primary" data-go="success" type="button">Confirm <span class="arrow">›</span></button></div>
@@ -324,37 +443,36 @@ function renderSuccess() {
 }
 
 function renderHome() {
-  const returning = state.testUserType === 'returning';
   return `<div class="screen home-screen">${statusBar()}<div class="home-scroll"><header class="home-logo">${logo()}</header>
-    <section class="home-actions ${returning ? 'two-actions' : ''}">
-      ${returning ? '' : '<img class="action-cuppy" src="branding/interface-icons/cuppy-lean.png" alt="" />'}
+    <section class="home-actions">
+      <img class="action-cuppy" src="branding/interface-icons/cuppy-lean.png" alt="" />
       <button class="home-action-card" data-action="checkout" type="button"><img src="branding/interface-icons/checkout-scan.png" alt="" /><strong>Checkout</strong></button>
-      ${returning ? '<button class="home-action-card" type="button"><img src="branding/interface-icons/return-drop.png" alt="" /><strong>Return</strong></button>' : ''}
     </section>
     <section class="impact-heading"><div><h2>Your impact</h2><p>By switching to USEFULL</p></div><button type="button">Share ${lineIcon('share')}</button></section>
     <section class="impact-grid">
-      <div><img src="branding/interface-icons/Timeline_Icons_trashtruck.png" alt="" /><strong>${returning ? '2.1' : '2.8'} LBS</strong><span>of trash</span></div>
-      <div><img src="branding/interface-icons/ShowerWater.png" alt="" /><strong>${returning ? '59.3' : '79.6'} GAL</strong><span>of water</span></div>
-      <div><img src="branding/interface-icons/Timeline_Icons_globalwarming.png" alt="" /><strong>${returning ? '6.6' : '8.9'} LBS</strong><span>of emissions</span></div>
+      <div><img src="branding/interface-icons/Timeline_Icons_trashtruck.png" alt="" /><strong>2.8 LBS</strong><span>of trash</span></div>
+      <div><img src="branding/interface-icons/ShowerWater.png" alt="" /><strong>79.6 GAL</strong><span>of water</span></div>
+      <div><img src="branding/interface-icons/Timeline_Icons_globalwarming.png" alt="" /><strong>8.9 LBS</strong><span>of emissions</span></div>
     </section>
-    ${returning ? `<section class="rentals-heading"><div><h2>Active rentals</h2><p>Please return before the due date.</p></div><img src="branding/interface-icons/earth-containers.png" alt="" /></section>
-      <section class="rental-list"><article><div><strong>Big Brown Cup</strong><span>Due date: July 18, 2026</span></div><div><span>Due:</span><strong>07.18.26</strong></div></article><article class="late"><div><strong>Big Yellow Bowl</strong><span>Fine: Temporarily paused</span></div><b>Late</b></article></section>`
-      : '<section class="empty-rentals"><h2>No active rentals</h2><p>As soon as you check a cup or bowl out,<br>something will be displayed here.</p></section>'}
-    </div><nav class="home-nav"><button class="active" type="button">${lineIcon('home')}<span>Home</span></button>${returning ? `<button type="button">${lineIcon('location')}<span>Locations</span></button>` : ''}<button type="button">${lineIcon('scan')}<span>Checkout</span></button><button type="button">${lineIcon('fees')}<span>Fees</span></button><button class="profile-dot" type="button" aria-label="Profile">O</button></nav></div>`;
+    <section class="empty-rentals"><h2>No active rentals</h2><p>As soon as you check a cup or bowl out,<br>something will be displayed here.</p></section>
+    </div><nav class="home-nav"><button class="active" type="button">${lineIcon('home')}<span>Home</span></button><button type="button">${lineIcon('scan')}<span>Checkout</span></button><button type="button">${lineIcon('fees')}<span>Fees</span></button><button class="profile-dot" type="button" aria-label="Profile">O</button></nav></div>`;
 }
 
 function renderSettings() {
+  if (state.testerHidden) return '';
   return `<button class="tester-button" data-action="open-settings" type="button" aria-label="Open prototype settings" title="Prototype settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
       <span>${state.testUserType === 'new' ? 'NEW' : 'RETURNING'}</span>
     </button>
     ${state.settingsOpen ? `<button class="modal-backdrop settings-backdrop" data-action="close-settings" type="button" aria-label="Close prototype settings"></button>
-      <aside class="tester-panel" aria-label="Prototype settings"><div class="tester-panel-header"><div><span>Test mode</span><strong>SMS scenarios</strong></div><button class="panel-close" data-action="close-settings" type="button" aria-label="Close settings">×</button></div>
+      <aside class="tester-panel" aria-label="Prototype settings"><div class="tester-panel-header"><div><span>Test mode</span><strong>Flow scenarios</strong></div><button class="panel-close" data-action="close-settings" type="button" aria-label="Close settings">×</button></div>
         <div class="test-toggle" role="group" aria-label="SMS user type">
           <button class="${state.testUserType === 'new' ? 'selected' : ''}" data-test-user="new" type="button"><strong>New user</strong><span>OTP → consent → profile</span></button>
           <button class="${state.testUserType === 'returning' ? 'selected' : ''}" data-test-user="returning" type="button"><strong>Returning</strong><span>OTP → signed in</span></button>
         </div>
         <div class="scenario-toggles" aria-label="Authentication scenarios">
+          <button class="scenario-toggle ${state.guidedSignup ? 'selected' : ''}" data-test-flag="guidedSignup" type="button" role="checkbox" aria-checked="${state.guidedSignup}"><span class="scenario-check">${state.guidedSignup ? '✓' : ''}</span><span><strong>Guided Signup</strong><small>Recommend Buff OneCard or bank-card sign-up paths.</small></span></button>
+          <button class="scenario-toggle ${state.askAffiliationDetails ? 'selected' : ''}" data-test-flag="askAffiliationDetails" type="button" role="checkbox" aria-checked="${state.askAffiliationDetails}"><span class="scenario-check">${state.askAffiliationDetails ? '✓' : ''}</span><span><strong>Ask affiliation &amp; graduation year</strong><small>Restore the original stepper and profile questions.</small></span></button>
           <button class="scenario-toggle ${state.returningPhoneExists ? 'selected' : ''}" data-test-flag="returningPhoneExists" type="button" role="checkbox" aria-checked="${state.returningPhoneExists}"><span class="scenario-check">${state.returningPhoneExists ? '✓' : ''}</span><span><strong>Phone number exists for returning login</strong><small>Off shows “Phone number not found.”</small></span></button>
           <button class="scenario-toggle ${state.otpEntryCorrect ? 'selected' : ''}" data-test-flag="otpEntryCorrect" type="button" role="checkbox" aria-checked="${state.otpEntryCorrect}"><span class="scenario-check">${state.otpEntryCorrect ? '✓' : ''}</span><span><strong>OTP entry correct</strong><small>Applies to returning and new-user OTP screens.</small></span></button>
           <button class="scenario-toggle ${state.allowEmailNotifications ? 'selected' : ''}" data-test-flag="allowEmailNotifications" type="button" role="checkbox" aria-checked="${state.allowEmailNotifications}"><span class="scenario-check">${state.allowEmailNotifications ? '✓' : ''}</span><span><strong>Allow Email Notifications</strong><small>Off uses the existing SMS-only consent screen.</small></span></button>
@@ -364,6 +482,7 @@ function renderSettings() {
 
 function renderConsent() {
   if (!state.consentOpen) return '';
+  if (state.notificationContext !== 'signup') return renderNotificationSettings();
   if (state.allowEmailNotifications) {
     const emailValid = isValidEmail(state.notificationEmail);
     const canContinue = canContinueConsent();
@@ -397,6 +516,41 @@ function renderConsent() {
   </section>`;
 }
 
+function renderNotificationSettings() {
+  const fromSso = state.notificationContext === 'cu-sso';
+  const emailValid = !state.notificationEmailSelected || isValidEmail(state.notificationEmail);
+  const phoneDigits = state.notificationPhone.replace(/\D/g, '');
+  const phoneValid = !state.notificationPhoneSelected || phoneDigits.length === 10;
+  const canSave = canSaveNotificationSettings();
+  const emailOption = `<section class="notification-option ${state.notificationEmailSelected ? 'selected' : ''}">
+    <div class="notification-option-header">${fromSso
+      ? '<span class="channel-checkbox checked locked-channel" aria-hidden="true">✓</span>'
+      : `<button class="channel-checkbox ${state.notificationEmailSelected ? 'checked' : ''}" data-notification-channel="email" type="button" role="checkbox" aria-checked="${state.notificationEmailSelected}" aria-label="Receive email notifications">${state.notificationEmailSelected ? '✓' : ''}</button>`}<strong>Email notifications</strong></div>
+    <input class="text-input notification-email-input ${state.notificationEmailSelected && !emailValid ? 'input-error' : ''}" id="notification-email" type="email" value="${escapeHTML(state.notificationEmail)}" placeholder="Email address" autocomplete="email" ${state.notificationEmailSelected ? '' : 'disabled'} />
+    <p>Get checkout, return, and account updates by email. You can change this later.</p>
+    <span class="notification-email-error">${state.notificationEmailSelected && !emailValid ? 'Enter a valid email address' : ''}</span>
+  </section>`;
+  const smsOption = fromSso
+    ? `<section class="notification-option ${state.notificationPhoneSelected ? 'selected' : ''}">
+        <div class="notification-option-header"><button class="channel-checkbox ${state.notificationPhoneSelected ? 'checked' : ''}" data-notification-channel="phone" type="button" role="checkbox" aria-checked="${state.notificationPhoneSelected}" aria-label="Add SMS notifications">${state.notificationPhoneSelected ? '✓' : ''}</button><strong>SMS notifications</strong></div>
+        <input class="text-input notification-phone-input ${state.notificationPhoneSelected && !phoneValid ? 'input-error' : ''}" id="notification-phone" type="tel" inputmode="tel" value="${escapeHTML(formatPhone(state.notificationPhone))}" placeholder="(303) 555-0123" autocomplete="tel" ${state.notificationPhoneSelected ? '' : 'disabled'} />
+        <p>Add a mobile number for rental and account updates.</p>
+        <span class="notification-phone-error">${state.notificationPhoneSelected && !phoneValid ? 'Enter a 10-digit mobile number' : ''}</span>
+      </section>`
+    : `<section class="notification-option selected">
+        <div class="notification-option-header"><span class="channel-checkbox checked locked-channel" aria-hidden="true">✓</span><div><strong>SMS notifications</strong><span class="locked-contact">${escapeHTML(formatPhone(state.phone))}</span></div></div>
+        <p>Rental and account updates will continue at this verified number.</p>
+      </section>`;
+  return `<div class="modal-backdrop consent-backdrop"></div><section class="consent-modal consent-modal-with-email notification-settings-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+    <h2 id="consent-title">Notification Settings</h2>
+    <p>${fromSso ? 'Confirm your email and optionally add a mobile number.' : 'Your mobile number is verified. Add email notifications if you’d like.'}</p>
+    <div class="notification-options">${emailOption}${smsOption}</div>
+    ${canSave ? '' : '<p class="consent-validation">Check the highlighted contact information.</p>'}
+    <button class="button button-primary" data-action="consent-continue" type="button" ${canSave ? '' : 'disabled'}>Save and continue</button>
+    <button class="button button-outline consent-cancel" data-action="cancel-consent" type="button">Skip for now</button>
+  </section>`;
+}
+
 function renderSheet() {
   if (!state.sheet) return '';
   let options = [];
@@ -410,6 +564,10 @@ function renderSheet() {
 function render() {
   const views = {
     community: renderCommunity,
+    cuAccountCheck: renderCuAccountCheck,
+    cuCheckoutMethod: renderCuCheckoutMethod,
+    cuSso: renderCuSso,
+    accountFinder: renderAccountFinder,
     method: renderMethod,
     nau: renderNau,
     email: renderEmail,
@@ -446,6 +604,7 @@ app.addEventListener('click', event => {
     preserveFormDrafts();
     if (target.dataset.notificationChannel === 'sms') state.notificationSmsSelected = !state.notificationSmsSelected;
     if (target.dataset.notificationChannel === 'email') state.notificationEmailSelected = !state.notificationEmailSelected;
+    if (target.dataset.notificationChannel === 'phone') state.notificationPhoneSelected = !state.notificationPhoneSelected;
     return render();
   }
   if (target.dataset.method) {
@@ -454,10 +613,19 @@ app.addEventListener('click', event => {
       box?.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'translateX(0)'}], {duration:180});
       return;
     }
-    if (target.dataset.method === 'email') return go('email');
-    if (target.dataset.method === 'sms') return go('sms');
+    if (target.dataset.method === 'email') { state.authMode = 'signup'; return go('email'); }
+    if (target.dataset.method === 'sms') { state.authMode = 'signup'; state.testUserType = 'new'; return go('sms'); }
     if (target.dataset.method === 'nau') return go('nau');
-    if (target.dataset.method === 'cu') { state.name = state.name || 'Ralphie'; return go('affiliation'); }
+    if (target.dataset.method === 'cu') {
+      state.name = state.name || 'Ralphie';
+      if (isCU() && state.guidedSignup) {
+        state.returningSource = 'guided-buff-signup';
+        state.authMode = 'signup';
+        state.testUserType = 'new';
+        return go('cuSso');
+      }
+      return continueAfterIdentity();
+    }
     return go('account');
   }
   if (target.dataset.payment) { state.payment = target.dataset.payment; return go('confirm'); }
@@ -475,9 +643,73 @@ app.addEventListener('click', event => {
   }
   switch (target.dataset.action) {
     case 'back': return back();
+    case 'begin-onboarding':
+      state.returningSource = '';
+      return go(isCU() ? 'cuAccountCheck' : 'method');
+    case 'cu-checked-out': return go('cuCheckoutMethod');
+    case 'cu-first-time':
+      state.authMode = 'signup';
+      state.testUserType = 'new';
+      state.returningSource = '';
+      return go('method');
+    case 'cu-unsure':
+      state.accountLookupEmail = '';
+      state.accountLookupPhone = '';
+      state.accountLookupResult = '';
+      state.returningSource = '';
+      return go('accountFinder');
+    case 'search-account': {
+      const email = document.querySelector('#account-lookup-email');
+      const phone = document.querySelector('#account-lookup-phone');
+      const error = document.querySelector('#account-lookup-error');
+      const emailValue = email.value.trim();
+      const phoneDigits = phone.value.replace(/\D/g, '');
+      email.classList.remove('input-error');
+      phone.classList.remove('input-error');
+      if (emailValue && !isValidEmail(emailValue)) { email.classList.add('input-error'); error.textContent = 'Enter a valid email address, or leave it blank to search by phone.'; email.focus(); return; }
+      if (!emailValue && phoneDigits.length !== 10) { phone.classList.add('input-error'); error.textContent = 'Enter a valid email address or 10-digit mobile number.'; phone.focus(); return; }
+      state.accountLookupEmail = emailValue;
+      state.accountLookupPhone = phoneDigits;
+      state.accountLookupResult = emailValue ? 'email' : 'phone';
+      return render();
+    }
+    case 'close-account-result': state.accountLookupResult = ''; return render();
+    case 'account-found-email':
+      state.returningSource = 'account-search-email';
+      state.authMode = 'returning';
+      return go('cuSso');
+    case 'account-found-phone':
+      state.phone = state.accountLookupPhone;
+      state.otp = '';
+      state.authMode = 'returning';
+      state.returningSource = 'account-search-phone';
+      return go('otp');
+    case 'cu-used-buff-card':
+      state.authMode = 'returning';
+      state.returningSource = 'cu-buff-card';
+      return go('cuSso');
+    case 'cu-used-bank-card':
+      state.authMode = 'returning';
+      state.returningSource = 'cu-bank-card';
+      return go('returningSms');
+    case 'cu-sso-signin':
+      if (state.returningSource === 'guided-buff-signup') {
+        state.testUserType = 'new';
+        state.email = 'bsmith@boulder.edu';
+        return continueAfterIdentity();
+      }
+      state.testUserType = 'returning';
+      state.name = state.name || 'Ralphie';
+      state.notificationContext = 'cu-sso';
+      state.notificationEmailSelected = true;
+      state.notificationEmail = 'bsmith@boulder.edu';
+      state.notificationPhoneSelected = false;
+      state.notificationPhone = '';
+      state.consentOpen = true;
+      return render();
     case 'returning-login': state.authMode = 'returning'; return go('returningLogin');
-    case 'returning-email': state.authMode = 'returning'; return go('returningLogin');
-    case 'returning-sms': state.authMode = 'returning'; return go('returningSms');
+    case 'returning-email': state.authMode = 'returning'; state.returningSource = ''; return go('returningLogin');
+    case 'returning-sms': state.authMode = 'returning'; state.returningSource = ''; return go('returningSms');
     case 'returning-social': state.testUserType = 'returning'; state.name = state.name || 'Returning member'; return go('home');
     case 'returning-email-continue': {
       const input = document.querySelector('#returning-email');
@@ -512,7 +744,7 @@ app.addEventListener('click', event => {
     case 'close-sheet': state.sheet = null; return render();
     case 'terms': state.acceptedTerms = !state.acceptedTerms; return render();
     case 'terms-link': return;
-    case 'nau-signin': state.name = state.name || 'Louie'; return go('affiliation');
+    case 'nau-signin': state.name = state.name || 'Louie'; return continueAfterIdentity();
     case 'send-otp': {
       const input = document.querySelector('#phone');
       const error = document.querySelector('#phone-error');
@@ -530,9 +762,22 @@ app.addEventListener('click', event => {
       if (digits.length !== 6) { error.textContent = 'Enter the complete 6-digit code.'; input.focus(); return; }
       if (!state.otpEntryCorrect) { input.classList.add('input-error'); error.textContent = 'One-time code is incorrect'; input.focus(); return; }
       state.otp = digits;
-      if (state.authMode === 'returning') { state.testUserType = 'returning'; state.name = state.name || 'Returning member'; return go('home'); }
+      if (state.authMode === 'returning') {
+        state.testUserType = 'returning';
+        state.name = state.name || 'Returning member';
+        if (state.returningSource === 'cu-bank-card') {
+          state.notificationContext = 'cu-bank-card';
+          state.notificationSmsSelected = true;
+          state.notificationEmailSelected = false;
+          state.notificationEmail = '';
+          state.consentOpen = true;
+          return render();
+        }
+        return go('home');
+      }
       if (state.testUserType === 'returning') { state.name = state.name || 'Returning member'; return go('home'); }
       state.transactionalAccepted = false;
+      state.notificationContext = 'signup';
       state.consentOpen = true;
       return render();
     }
@@ -543,19 +788,30 @@ app.addEventListener('click', event => {
       return;
     }
     case 'consent-check': state.transactionalAccepted = !state.transactionalAccepted; return render();
-    case 'cancel-consent': state.consentOpen = false; state.transactionalAccepted = false; return render();
+    case 'cancel-consent':
+      state.consentOpen = false;
+      state.transactionalAccepted = false;
+      return state.notificationContext === 'signup' ? render() : go('home');
     case 'consent-continue':
       preserveFormDrafts();
+      if (state.notificationContext !== 'signup') {
+        if (!canSaveNotificationSettings()) return;
+        state.consentOpen = false;
+        return go('home');
+      }
       if (!canContinueConsent()) return;
       state.transactionalAccepted = state.allowEmailNotifications ? state.notificationSmsSelected : true;
       state.consentOpen = false;
       return go('smsProfile');
     case 'sms-profile-continue': {
-      const input = document.querySelector('#sms-name');
+      const firstName = document.querySelector('#sms-first-name');
+      const lastName = document.querySelector('#sms-last-name');
       const error = document.querySelector('#sms-profile-error');
-      if (!input.value.trim()) { error.textContent = 'Enter your name to continue.'; input.focus(); return; }
-      state.name = input.value.trim();
-      return go('affiliation');
+      if (!firstName.value.trim() || !lastName.value.trim()) { error.textContent = 'Enter your first and last name to continue.'; (!firstName.value.trim() ? firstName : lastName).focus(); return; }
+      state.firstName = firstName.value.trim();
+      state.lastName = lastName.value.trim();
+      state.name = `${state.firstName} ${state.lastName}`;
+      return continueAfterIdentity();
     }
     case 'email-continue': {
       const input = document.querySelector('#email');
@@ -572,27 +828,45 @@ app.addEventListener('click', event => {
       const error = document.querySelector('#account-error');
       if (!email.value || !name.value || password.value.length < 6 || password.value !== confirm.value) { error.textContent = 'Complete all fields and use matching passwords of 6+ characters.'; return; }
       state.email = email.value; state.name = name.value; state.password = password.value;
-      return go('affiliation');
+      return continueAfterIdentity();
     }
     case 'checkout': target.textContent = 'Scanner opened'; target.disabled = true; return;
   }
 });
 
 app.addEventListener('input', event => {
-  if (event.target.id !== 'notification-email') return;
-  state.notificationEmail = event.target.value;
-  const valid = isValidEmail(state.notificationEmail);
-  const error = app.querySelector('.notification-email-error');
+  if (event.target.id === 'account-lookup-phone') {
+    event.target.value = formatPhone(event.target.value);
+    return;
+  }
+  if (!['notification-email', 'notification-phone'].includes(event.target.id)) return;
+  if (event.target.id === 'notification-email') state.notificationEmail = event.target.value;
+  if (event.target.id === 'notification-phone') {
+    state.notificationPhone = event.target.value.replace(/\D/g, '').slice(0, 10);
+    event.target.value = formatPhone(state.notificationPhone);
+  }
+  const emailValid = isValidEmail(state.notificationEmail);
+  const phoneValid = state.notificationPhone.replace(/\D/g, '').length === 10;
+  const error = app.querySelector(event.target.id === 'notification-email' ? '.notification-email-error' : '.notification-phone-error');
   const validation = app.querySelector('.consent-validation');
   const submit = app.querySelector('[data-action="consent-continue"]');
-  event.target.classList.toggle('input-error', Boolean(state.notificationEmail) && !valid);
-  if (error) error.textContent = state.notificationEmail && !valid ? 'Enter a valid email address' : '';
-  if (validation) validation.textContent = canContinueConsent() ? '' : 'Choose at least one valid notification method.';
-  if (submit) submit.disabled = !canContinueConsent();
+  const valid = event.target.id === 'notification-email' ? emailValid : phoneValid;
+  event.target.classList.toggle('input-error', !valid);
+  if (error) error.textContent = valid ? '' : event.target.id === 'notification-email' ? 'Enter a valid email address' : 'Enter a 10-digit mobile number';
+  const canContinue = state.notificationContext === 'signup' ? canContinueConsent() : canSaveNotificationSettings();
+  if (validation) validation.textContent = canContinue ? '' : state.notificationContext === 'signup' ? 'Choose at least one valid notification method.' : 'Check the highlighted contact information.';
+  if (submit) submit.disabled = !canContinue;
 });
 
 resetButton.addEventListener('click', () => {
-  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', sheet:null });
+  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', sheet:null });
+  render();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key.toLowerCase() !== 'h' || event.metaKey || event.ctrlKey || event.altKey || event.target.matches('input, textarea')) return;
+  state.testerHidden = !state.testerHidden;
+  state.settingsOpen = false;
   render();
 });
 

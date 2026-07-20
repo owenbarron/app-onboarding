@@ -1,0 +1,37 @@
+h2. CU Boulder onboarding flow
+
+|| 01 · Community selection || 02 · Existing-account question || 03 · Kiosk payment question ||
+| !01-community-selection.png|width=280! | !02-cu-account-question.png|width=280! | !03-kiosk-payment-question.png|width=280! |
+
+|| 04 · Guided signup || 05 · SMS number entry || 06 · Verify phone number ||
+| !04-guided-signup.png|width=280! | !05-sms-number-entry.png|width=280! | !06-verify-phone-number.png|width=280! |
+
+|| 07 · Allow notifications || 08 · First and last name || 09 · Boulder payment method ||
+| !07-allow-notifications.png|width=280! | !08-first-and-last-name.png|width=280! | !09-boulder-payment-method.png|width=280! |
+
+h2. Confirmation, home, and authentication
+
+|| 10 · Confirm BuffCard || 11 · Welcome || 12 · Universal home ||
+| !10-confirm-boulder-buffcard.png|width=280! | !11-welcome.png|width=280! | !12-universal-home.png|width=280! |
+
+|| 13 · CU Boulder SSO || 14 · BuffCard notification settings || 15 · Kiosk account phone ||
+| !13-cu-boulder-sso.png|width=280! | !14-notification-settings-buffcard.png|width=280! | !15-kiosk-account-phone.png|width=280! |
+
+|| 16 · Bank-card notification settings || 17 · Account finder || 18 · Account found by email ||
+| !16-notification-settings-bank-card.png|width=280! | !17-account-finder.png|width=280! | !18-account-found-email.png|width=280! |
+
+h2. Recovery, alternate signup, and legacy settings
+
+|| 19 · Account found by phone || 20 · Returning-account login || 21 · Returning email login ||
+| !19-account-found-phone.png|width=280! | !20-returning-account-login.png|width=280! | !21-returning-email-password.png|width=280! |
+
+|| 22 · Classic signup options || 23 · Email entry || 24 · Email account details ||
+| !22-classic-signup-options.png|width=280! | !23-email-entry.png|width=280! | !24-email-account-details.png|width=280! |
+
+|| 25 · Legacy affiliation || 26 · Legacy graduation year ||  ||
+| !25-legacy-affiliation.png|width=280! | !26-legacy-graduation-year.png|width=280! |  |
+
+h2. Optional overview sheets
+
+|| Onboarding · Screens 01–09 || Authentication and recovery · Screens 10–18 || Alternate and legacy paths · Screens 19–26 ||
+| !contact-sheet-1-onboarding.png|width=300! | !contact-sheet-2-auth-and-recovery.png|width=300! | !contact-sheet-3-alternates-and-legacy.png|width=300! |
