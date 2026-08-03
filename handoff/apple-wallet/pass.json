@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+
+  "passTypeIdentifier": "pass.us.usefull.id",
+  "teamIdentifier": "REPLACE_WITH_TEAM_ID",
+  "organizationName": "USEFULL",
+  "description": "USEFULL QR",
+
+  "serialNumber": "REPLACE_WITH_STABLE_PER_USER_ID",
+
+  "backgroundColor": "rgb(0, 151, 157)",
+  "foregroundColor": "rgb(255, 255, 255)",
+  "labelColor": "rgb(255, 255, 255)",
+
+  "barcodes": [
+    {
+      "format": "PKBarcodeFormatQR",
+      "message": "REPLACE_WITH_SAME_PAYLOAD_AS_IN_APP_QR",
+      "messageEncoding": "iso-8859-1"
+    }
+  ],
+
+  "storeCard": {
+    "secondaryFields": [
+      {
+        "key": "reusingSince",
+        "label": "REUSING SINCE",
+        "value": "Aug 15, 2025",
+        "textAlignment": "PKTextAlignmentCenter"
+      }
+    ],
+    "backFields": [
+      {
+        "key": "howTo",
+        "label": "How to use",
+        "value": "Put your phone face down over the scanner to check out."
+      },
+      {
+        "key": "app",
+        "label": "USEFULL app",
+        "value": "Fees, active rentals, and your impact live in the app."
+      },
+      {
+        "key": "support",
+        "label": "Need help?",
+        "value": "support@usefull.us"
+      }
+    ]
+  }
+}
