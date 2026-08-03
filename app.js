@@ -53,6 +53,35 @@ const state = {
   testerHidden: false,
   askAffiliationDetails: false,
   guidedSignup: true,
+  notificationManagerVersion: 'controls',
+  managerExistingChannel: 'email',
+  smsCampusEnabled: true,
+  managerEmailAdded: true,
+  managerSmsAdded: false,
+  managerEmail: 'owen@usefull.us',
+  managerPhone: '',
+  managerDirty: false,
+  managerSaved: false,
+  managerNotice: '',
+  channelSetupOpen: false,
+  channelSetupStage: 'contact',
+  channelSetupType: '',
+  channelSetupContact: '',
+  channelSetupOtp: '',
+  channelSetupError: '',
+  channelSetupMessage: '',
+  qrSheetOpen: false,
+  walletStage: '',
+  passAdded: false,
+  walletAvailable: true,
+  qrCopyVariant: 'scanner',
+  reusingSince: 'Aug 15, 2025',
+  notificationPreferences: {
+    checkout: { app: true, email: true, sms: false },
+    return: { app: true, email: false, sms: true },
+    due: { app: true, email: true, sms: true },
+    fees: { app: true, email: true, sms: true }
+  },
   sheet: null
 };
 
@@ -92,6 +121,54 @@ function formatPhone(value) {
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
+}
+
+const managerEvents = [
+  { key: 'checkout', title: 'Checkout confirmation', description: 'A receipt when a container is checked out.' },
+  { key: 'return', title: 'Return confirmation', description: 'Proof that your container was returned.' },
+  { key: 'due', title: 'Due today', description: 'A reminder before the free-use period ends.' },
+  { key: 'fees', title: 'Late & lost fees', description: 'Time-sensitive fee and account updates.' }
+];
+
+function freshNotificationPreferences() {
+  return {
+    checkout: { app: true, email: true, sms: false },
+    return: { app: true, email: false, sms: true },
+    due: { app: true, email: true, sms: true },
+    fees: { app: true, email: true, sms: true }
+  };
+}
+
+function setManagerExistingChannel(channel = 'email') {
+  const useSms = channel === 'sms' && state.smsCampusEnabled;
+  state.managerExistingChannel = useSms ? 'sms' : 'email';
+  state.managerEmailAdded = !useSms;
+  state.managerSmsAdded = useSms;
+  state.managerEmail = useSms ? '' : 'owen@usefull.us';
+  state.managerPhone = useSms ? '9285550142' : '';
+}
+
+function managerHasChannel(channel) {
+  if (channel === 'app') return true;
+  if (channel === 'email') return state.notificationManagerVersion === 'controls' || state.managerEmailAdded;
+  if (channel === 'sms') return state.smsCampusEnabled && (state.notificationManagerVersion === 'controls' || state.managerSmsAdded);
+  return false;
+}
+
+function managerChannels() {
+  return state.smsCampusEnabled ? ['app', 'email', 'sms'] : ['app', 'email'];
+}
+
+function managerChannelIsOn(eventKey, channel) {
+  return managerHasChannel(channel) && Boolean(state.notificationPreferences[eventKey]?.[channel]);
+}
+
+function managerActiveCount(eventKey) {
+  return managerChannels().filter(channel => managerChannelIsOn(eventKey, channel)).length;
+}
+
+function managerAllRequiredCovered() {
+  return managerEvents.every(event => managerActiveCount(event.key) > 0);
 }
 
 function canContinueConsent() {
@@ -455,7 +532,74 @@ function renderHome() {
       <div><img src="branding/interface-icons/Timeline_Icons_globalwarming.png" alt="" /><strong>8.9 LBS</strong><span>of emissions</span></div>
     </section>
     <section class="empty-rentals"><h2>No active rentals</h2><p>As soon as you check a cup or bowl out,<br>something will be displayed here.</p></section>
-    </div><nav class="home-nav"><button class="active" type="button">${lineIcon('home')}<span>Home</span></button><button type="button">${lineIcon('scan')}<span>Checkout</span></button><button type="button">${lineIcon('fees')}<span>Fees</span></button><button class="profile-dot" type="button" aria-label="Profile">O</button></nav></div>`;
+    </div><nav class="home-nav"><button class="active" data-go="home" type="button">${lineIcon('home')}<span>Home</span></button><button data-action="checkout" type="button">${lineIcon('scan')}<span>Checkout</span></button><button type="button">${lineIcon('fees')}<span>Fees</span></button><button class="profile-dot" data-go="profile" type="button" aria-label="Open profile">O</button></nav></div>`;
+}
+
+function renderProfile() {
+  return `<div class="screen profile-screen">${statusBar()}<div class="profile-scroll">
+    <header class="profile-hero">${logo()}<p>Profile</p><h1>Owen Barron</h1><span>${escapeHTML(state.community)}</span></header>
+    <section class="profile-account-card" aria-label="Account summary"><div><span>Role</span><strong>Member</strong></div><button class="button button-soft" type="button">Change community</button></section>
+    <section class="profile-menu" aria-label="Profile settings">
+      <button type="button"><span><strong>My community</strong><small>${escapeHTML(state.community)}</small></span><b>Open</b></button>
+      <button type="button"><span><strong>Payment method</strong><small>Manage your card on file</small></span><b>Open</b></button>
+      <button class="profile-notification-link" data-go="notificationManager" type="button"><span><strong>Notifications</strong><small>Push, email, and SMS preferences</small></span><b>Manage</b></button>
+      <button type="button"><span><strong>Help &amp; policies</strong><small>Support, terms, and privacy</small></span><b>Open</b></button>
+    </section>
+    <button class="profile-logout" type="button">Log out</button><p class="profile-version">Version 3.40.0</p>
+    </div><nav class="home-nav"><button data-go="home" type="button">${lineIcon('home')}<span>Home</span></button><button data-action="checkout" type="button">${lineIcon('scan')}<span>Checkout</span></button><button type="button">${lineIcon('fees')}<span>Fees</span></button><button class="profile-dot active" type="button" aria-label="Profile">O</button></nav></div>`;
+}
+
+function renderManagerContactMethods() {
+  const controlsOnly = state.notificationManagerVersion === 'controls';
+  const emailValue = controlsOnly ? 'owen@usefull.us' : state.managerEmail;
+  const phoneValue = controlsOnly ? '(928) 555-0142' : formatPhone(state.managerPhone);
+  const emailAdded = managerHasChannel('email');
+  const smsAdded = managerHasChannel('sms');
+  return `<section class="manager-section manager-contact-section" aria-labelledby="contact-methods-title">
+    <h2 id="contact-methods-title">Channels</h2>
+    <div class="manager-contact-list">
+      <article><i class="ph ph-bell-ringing" aria-hidden="true"></i><div><strong>Push Notifications</strong><span>This device</span></div><b class="channel-status verified" aria-label="Push notifications ready"><i class="ph ph-check-circle" aria-hidden="true"></i></b></article>
+      <article><i class="ph ph-envelope-simple" aria-hidden="true"></i><div><strong>Email</strong><span>${emailAdded ? escapeHTML(emailValue) : 'Not added'}</span></div>${emailAdded ? '<b class="channel-status verified" aria-label="Email verified"><i class="ph ph-check-circle" aria-hidden="true"></i></b>' : '<button data-action="manager-add-channel" data-channel="email" type="button"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>'}</article>
+      ${state.smsCampusEnabled ? `<article><i class="ph ph-chat-circle-text" aria-hidden="true"></i><div><strong>SMS</strong><span>${smsAdded ? escapeHTML(phoneValue) : 'Not added'}</span></div>${smsAdded ? '<b class="channel-status verified" aria-label="SMS verified"><i class="ph ph-check-circle" aria-hidden="true"></i></b>' : '<button data-action="manager-add-channel" data-channel="sms" type="button"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>'}</article>` : ''}
+    </div>
+  </section>`;
+}
+
+function renderManagerEvent(event) {
+  const activeCount = managerActiveCount(event.key);
+  const controls = managerChannels().map(channel => {
+    const available = managerHasChannel(channel);
+    const isOn = managerChannelIsOn(event.key, channel);
+    const isRequiredLast = isOn && activeCount === 1;
+    const label = channel === 'app' ? 'Push' : channel === 'sms' ? 'SMS' : 'Email';
+    const stateLabel = !available ? 'Unavailable' : isOn ? 'On' : 'Off';
+    return `<button class="manager-mini-toggle ${isOn ? 'on' : 'off'} ${available ? '' : 'unavailable'}" data-manager-event="${event.key}" data-manager-channel="${channel}" type="button" aria-pressed="${isOn}" aria-label="${label} notifications for ${event.title}: ${stateLabel}" ${!available || isRequiredLast ? 'disabled' : ''}><span class="manager-switch-track" aria-hidden="true"><span></span></span></button>`;
+  }).join('');
+  const compactTitle = { checkout: 'Checkout', return: 'Return', due: 'Due today', fees: 'Late fees' }[event.key];
+  return `<article class="manager-event-row"><strong>${compactTitle}</strong><div class="manager-channel-controls ${state.smsCampusEnabled ? '' : 'two-channels'}">${controls}</div></article>`;
+}
+
+function renderManagerChannelSetup() {
+  if (!state.channelSetupOpen) return '';
+  const isSms = state.channelSetupType === 'sms';
+  const channelName = isSms ? 'mobile number' : 'email';
+  if (state.channelSetupStage === 'success') {
+    return `<button class="modal-backdrop manager-setup-backdrop" data-action="manager-close-channel" type="button" aria-label="Close verification"></button><section class="manager-setup-sheet manager-setup-success" role="dialog" aria-modal="true" aria-labelledby="manager-setup-title"><i class="ph ph-check-circle" aria-hidden="true"></i><h2 id="manager-setup-title">${isSms ? 'SMS' : 'Email'} added</h2><p>${isSms ? escapeHTML(formatPhone(state.managerPhone)) : escapeHTML(state.managerEmail)}</p><button class="button button-teal" data-action="manager-close-channel" type="button">Done</button></section>`;
+  }
+  if (state.channelSetupStage === 'otp') {
+    return `<button class="modal-backdrop manager-setup-backdrop" data-action="manager-close-channel" type="button" aria-label="Close verification"></button><section class="manager-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="manager-setup-title"><h2 id="manager-setup-title">Verify ${isSms ? 'SMS' : 'email'}</h2><p>Code sent to <strong>${escapeHTML(isSms ? formatPhone(state.channelSetupContact) : state.channelSetupContact)}</strong>.</p><label class="field-label" for="manager-channel-otp">6-digit code</label><input class="text-input manager-otp-input ${state.channelSetupError ? 'input-error' : ''}" id="manager-channel-otp" inputmode="numeric" maxlength="6" value="${escapeHTML(state.channelSetupOtp)}" autocomplete="one-time-code" placeholder="000000" /><p class="manager-setup-message" aria-live="polite">${escapeHTML(state.channelSetupMessage)}</p><p class="manager-setup-error" role="alert">${escapeHTML(state.channelSetupError)}</p><button class="button button-primary" data-action="manager-verify-channel" type="button">Verify</button><button class="manager-sheet-secondary" data-action="manager-resend-channel" type="button">Send a new code</button></section>`;
+  }
+  return `<button class="modal-backdrop manager-setup-backdrop" data-action="manager-close-channel" type="button" aria-label="Close setup"></button><section class="manager-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="manager-setup-title"><h2 id="manager-setup-title">Add ${channelName}</h2><p>We’ll send a verification code.</p><label class="field-label" for="manager-channel-contact">${isSms ? 'Mobile number' : 'Email address'}</label><input class="text-input ${state.channelSetupError ? 'input-error' : ''}" id="manager-channel-contact" type="${isSms ? 'tel' : 'email'}" inputmode="${isSms ? 'tel' : 'email'}" value="${escapeHTML(isSms ? formatPhone(state.channelSetupContact) : state.channelSetupContact)}" autocomplete="${isSms ? 'tel' : 'email'}" placeholder="${isSms ? '(303) 555-0123' : 'name@example.com'}" /><p class="manager-setup-error" role="alert">${escapeHTML(state.channelSetupError)}</p><button class="button button-primary" data-action="manager-send-channel-code" type="button">Send code</button>${isSms ? '<p class="manager-sms-legal">Transactional texts only. Message and data rates may apply. Reply STOP to opt out.</p>' : ''}<button class="manager-sheet-secondary" data-action="manager-close-channel" type="button">Cancel</button></section>`;
+}
+
+function renderNotificationManager() {
+  const canSave = state.managerDirty && managerAllRequiredCovered();
+  const channelHeaders = managerChannels().map(channel => `<span><i class="ph ${channel === 'app' ? 'ph-bell-ringing' : channel === 'email' ? 'ph-envelope-simple' : 'ph-chat-circle-text'}" aria-hidden="true"></i><small>${channel === 'app' ? 'Push' : channel === 'sms' ? 'SMS' : 'Email'}</small></span>`).join('');
+  return `<div class="screen notification-manager-screen">${statusBar()}<header class="manager-header"><button class="manager-back" data-action="back" type="button"><i class="ph ph-caret-left" aria-hidden="true"></i>Back</button><h1>Notifications</h1>${logo(true)}</header><div class="manager-scroll">
+    ${renderManagerContactMethods()}
+    <section class="manager-section manager-events-section" aria-labelledby="alert-preferences-title"><h2 id="alert-preferences-title">Alerts</h2><div class="manager-channel-heading ${state.smsCampusEnabled ? '' : 'two-channels'}"><span></span>${channelHeaders}</div><div class="manager-event-list">${managerEvents.map(renderManagerEvent).join('')}</div></section>
+    <button class="button button-primary manager-save" data-action="manager-save" type="button" ${canSave ? '' : 'disabled'}>${state.managerSaved && !state.managerDirty ? 'Changes saved' : 'Save changes'}</button>
+    </div>${state.managerNotice ? `<div class="manager-toast" role="status">${escapeHTML(state.managerNotice)}</div>` : ''}${renderManagerChannelSetup()}</div>`;
 }
 
 function renderSettings() {
@@ -466,6 +610,13 @@ function renderSettings() {
     </button>
     ${state.settingsOpen ? `<button class="modal-backdrop settings-backdrop" data-action="close-settings" type="button" aria-label="Close prototype settings"></button>
       <aside class="tester-panel" aria-label="Prototype settings"><div class="tester-panel-header"><div><span>Test mode</span><strong>Flow scenarios</strong></div><button class="panel-close" data-action="close-settings" type="button" aria-label="Close settings">×</button></div>
+        <section class="notification-test-settings"><span>Notification manager</span><div class="test-toggle" role="group" aria-label="Notification manager version"><button class="${state.notificationManagerVersion === 'controls' ? 'selected' : ''}" data-manager-version="controls" type="button"><strong>Version 1</strong><span>Control existing channels</span></button><button class="${state.notificationManagerVersion === 'channels' ? 'selected' : ''}" data-manager-version="channels" type="button"><strong>Version 2</strong><span>Add and verify channels</span></button></div>${state.notificationManagerVersion === 'channels' ? `<span class="tester-sub-label">Starts with</span><div class="test-toggle manager-existing-toggle" role="group" aria-label="Existing notification channel"><button class="${state.managerExistingChannel === 'email' ? 'selected' : ''}" data-manager-existing="email" type="button"><strong>Email</strong><span>Add SMS</span></button><button class="${state.managerExistingChannel === 'sms' ? 'selected' : ''}" data-manager-existing="sms" type="button"><strong>SMS</strong><span>Add email</span></button></div>` : ''}<button class="button button-teal tester-launch" data-action="preview-profile" type="button">Open profile</button></section>
+        <section class="notification-test-settings"><span>Checkout QR copy</span><div class="test-toggle" role="group" aria-label="QR instruction copy"><button class="${state.qrCopyVariant === 'scanner' ? 'selected' : ''}" data-qr-variant="scanner" type="button"><strong>Scanner-first</strong><span>“Put your phone face down over the scanner”</span></button><button class="${state.qrCopyVariant === 'cashier' ? 'selected' : ''}" data-qr-variant="cashier" type="button"><strong>Cashier-first</strong><span>“When directed by the cashier”</span></button></div>
+          <div class="scenario-toggles">
+            <button class="scenario-toggle ${state.walletAvailable ? 'selected' : ''}" data-test-flag="walletAvailable" type="button" role="checkbox" aria-checked="${state.walletAvailable}"><span class="scenario-check">${state.walletAvailable ? '✓' : ''}</span><span><strong>Apple Wallet available</strong><small>Off hides the Add button (Android or no Wallet).</small></span></button>
+            <button class="scenario-toggle ${state.passAdded ? 'selected' : ''}" data-test-flag="passAdded" type="button" role="checkbox" aria-checked="${state.passAdded}"><span class="scenario-check">${state.passAdded ? '✓' : ''}</span><span><strong>Pass already added</strong><small>Jump straight to the post-add copy.</small></span></button>
+          </div>
+          <button class="button button-teal tester-launch" data-action="preview-qr" type="button">Open USEFULL QR</button></section>
         <div class="test-toggle" role="group" aria-label="SMS user type">
           <button class="${state.testUserType === 'new' ? 'selected' : ''}" data-test-user="new" type="button"><strong>New user</strong><span>OTP → consent → profile</span></button>
           <button class="${state.testUserType === 'returning' ? 'selected' : ''}" data-test-user="returning" type="button"><strong>Returning</strong><span>OTP → signed in</span></button>
@@ -476,6 +627,7 @@ function renderSettings() {
           <button class="scenario-toggle ${state.returningPhoneExists ? 'selected' : ''}" data-test-flag="returningPhoneExists" type="button" role="checkbox" aria-checked="${state.returningPhoneExists}"><span class="scenario-check">${state.returningPhoneExists ? '✓' : ''}</span><span><strong>Phone number exists for returning login</strong><small>Off shows “Phone number not found.”</small></span></button>
           <button class="scenario-toggle ${state.otpEntryCorrect ? 'selected' : ''}" data-test-flag="otpEntryCorrect" type="button" role="checkbox" aria-checked="${state.otpEntryCorrect}"><span class="scenario-check">${state.otpEntryCorrect ? '✓' : ''}</span><span><strong>OTP entry correct</strong><small>Applies to returning and new-user OTP screens.</small></span></button>
           <button class="scenario-toggle ${state.allowEmailNotifications ? 'selected' : ''}" data-test-flag="allowEmailNotifications" type="button" role="checkbox" aria-checked="${state.allowEmailNotifications}"><span class="scenario-check">${state.allowEmailNotifications ? '✓' : ''}</span><span><strong>Allow Email Notifications</strong><small>Off uses the existing SMS-only consent screen.</small></span></button>
+          <button class="scenario-toggle ${state.smsCampusEnabled ? 'selected' : ''}" data-test-flag="smsCampusEnabled" type="button" role="checkbox" aria-checked="${state.smsCampusEnabled}"><span class="scenario-check">${state.smsCampusEnabled ? '✓' : ''}</span><span><strong>SMS-enabled campus</strong><small>Off hides SMS from the notification manager.</small></span></button>
         </div><p>Enter any 10-digit phone number and any 6-digit code while its scenario is enabled.</p>
       </aside>` : ''}`;
 }
@@ -551,6 +703,87 @@ function renderNotificationSettings() {
   </section>`;
 }
 
+function qrSvg(scale = 1, seed = 20250815) {
+  const size = 25;
+  let s = seed;
+  const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const inFinder = (x, y) => (x < 7 && y < 7) || (x >= size - 7 && y < 7) || (x < 7 && y >= size - 7);
+  const inFinderMargin = (x, y) => (x < 8 && y < 8) || (x >= size - 8 && y < 8) || (x < 8 && y >= size - 8);
+  const inLogo = (x, y) => x >= 10 && x <= 14 && y >= 10 && y <= 14;
+  const modules = [];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (inFinderMargin(x, y) || inLogo(x, y)) continue;
+      if (rand() > 0.52) modules.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
+    }
+  }
+  const finder = (fx, fy) => `<path d="M${fx} ${fy}h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1"/><rect x="${fx + 2}" y="${fy + 2}" width="3" height="3"/>`;
+  return `<svg class="qr-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Your USEFULL QR code" style="--qr-scale:${scale}">
+    <g fill="currentColor" shape-rendering="crispEdges">${modules.join('')}${finder(0, 0)}${finder(size - 7, 0)}${finder(0, size - 7)}</g>
+    <image href="branding/USEFULL-icons/USEFULL-Icon-Registered_Color.svg" x="10.1" y="10.9" width="4.8" height="3.4" preserveAspectRatio="xMidYMid meet"/>
+  </svg>`;
+}
+
+function renderWalletPass() {
+  return `<article class="wallet-pass" aria-label="USEFULL Wallet pass preview">
+    <header class="wallet-pass-head"><img src="branding/USEFULL-icons/USEFULL-Logo-Registered_KnockOut.svg" alt="USEFULL" /></header>
+    <div class="wallet-pass-strip"><img src="images/outdoor-containers.png" alt="" /></div>
+    <div class="wallet-pass-field"><span>Reusing since</span><strong>${escapeHTML(state.reusingSince)}</strong></div>
+    <div class="wallet-pass-qr">${qrSvg(1, 90210)}</div>
+  </article>`;
+}
+
+const qrCopy = {
+  scanner: {
+    lead: 'Put your phone face down over the scanner to check out.',
+    added: 'It’s in Apple Wallet too — use whichever is faster.'
+  },
+  cashier: {
+    lead: 'When directed by the cashier, show this code to complete your USEFULL checkout.',
+    added: 'It’s in Apple Wallet too — show either one.'
+  }
+};
+
+function renderQrSheet() {
+  if (!state.qrSheetOpen) return '';
+  const copy = qrCopy[state.qrCopyVariant] || qrCopy.scanner;
+  const walletRow = !state.walletAvailable
+    ? ''
+    : state.passAdded
+      ? `<button class="wallet-added-chip" data-action="wallet-view" type="button"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Added to Apple Wallet</span></button>`
+      : `<button class="wallet-add-button" data-action="wallet-open" type="button"><span class="wallet-add-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="wallet-add-label"><small>Add to</small><strong>Apple Wallet</strong></span></button>`;
+  return `<div class="modal-backdrop qr-backdrop"></div>
+    <section class="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+      <button class="qr-close" data-action="qr-close" type="button" aria-label="Close">×</button>
+      <h2 id="qr-title">My USEFULL QR</h2>
+      <p class="qr-lead">${copy.lead}${state.passAdded && state.walletAvailable ? ` <span class="qr-lead-added">${copy.added}</span>` : ''}</p>
+      <div class="qr-frame">${qrSvg(1, 20250815)}</div>
+      ${walletRow}
+    </section>`;
+}
+
+function renderWalletFlow() {
+  if (!state.walletStage) return '';
+  if (state.walletStage === 'added') {
+    return `<div class="modal-backdrop wallet-backdrop"></div>
+      <section class="wallet-done" role="dialog" aria-modal="true" aria-labelledby="wallet-done-title">
+        <span class="wallet-done-check" aria-hidden="true">✓</span>
+        <h2 id="wallet-done-title">Added to Apple Wallet</h2>
+        <p>Find your USEFULL QR in the Wallet app any time.</p>
+        <button class="button button-teal" data-action="wallet-finish" type="button">Done</button>
+      </section>`;
+  }
+  return `<div class="modal-backdrop wallet-backdrop"></div>
+    <section class="wallet-sheet" role="dialog" aria-modal="true" aria-labelledby="wallet-sheet-title">
+      <header class="wallet-sheet-bar">
+        <button data-action="wallet-cancel" type="button">Cancel</button>
+        <strong id="wallet-sheet-title">Add Pass</strong>
+        <button class="wallet-sheet-add" data-action="wallet-confirm" type="button">Add</button>
+      </header>
+      <div class="wallet-sheet-body">${renderWalletPass()}</div>
+    </section>`;
+}
+
 function renderSheet() {
   if (!state.sheet) return '';
   let options = [];
@@ -583,9 +816,16 @@ function render() {
     payment: renderPayment,
     confirm: renderConfirm,
     success: renderSuccess,
-    home: renderHome
+    home: renderHome,
+    profile: renderProfile,
+    notificationManager: renderNotificationManager
   };
-  app.innerHTML = views[state.screen]() + renderSettings() + renderConsent();
+  app.innerHTML = views[state.screen]() + renderSettings() + renderConsent() + renderQrSheet() + renderWalletFlow();
+}
+
+function renderAndFocus(selector) {
+  render();
+  requestAnimationFrame(() => app.querySelector(selector)?.focus());
 }
 
 function escapeHTML(value) {
@@ -598,8 +838,44 @@ app.addEventListener('click', event => {
   if (target.matches('a')) event.preventDefault();
   if (target.dataset.go) return go(target.dataset.go);
   if (target.dataset.sheet) { state.sheet = target.dataset.sheet; return render(); }
+  if (target.dataset.managerVersion) {
+    state.notificationManagerVersion = target.dataset.managerVersion;
+    if (state.notificationManagerVersion === 'channels') setManagerExistingChannel(state.managerExistingChannel);
+    state.managerDirty = false;
+    state.managerSaved = false;
+    state.managerNotice = '';
+    state.notificationPreferences = freshNotificationPreferences();
+    return render();
+  }
+  if (target.dataset.managerExisting) {
+    setManagerExistingChannel(target.dataset.managerExisting);
+    state.managerDirty = false;
+    state.managerSaved = false;
+    state.managerNotice = '';
+    state.notificationPreferences = freshNotificationPreferences();
+    return render();
+  }
+  if (target.dataset.managerEvent && target.dataset.managerChannel) {
+    const eventKey = target.dataset.managerEvent;
+    const channel = target.dataset.managerChannel;
+    if (!managerHasChannel(channel)) return;
+    const isOn = managerChannelIsOn(eventKey, channel);
+    if (isOn && managerActiveCount(eventKey) === 1) {
+      return;
+    }
+    state.notificationPreferences[eventKey][channel] = !isOn;
+    state.managerDirty = true;
+    state.managerSaved = false;
+    state.managerNotice = '';
+    return render();
+  }
+  if (target.dataset.qrVariant) { state.qrCopyVariant = target.dataset.qrVariant; return render(); }
   if (target.dataset.testUser) { state.testUserType = target.dataset.testUser; return render(); }
-  if (target.dataset.testFlag) { state[target.dataset.testFlag] = !state[target.dataset.testFlag]; return render(); }
+  if (target.dataset.testFlag) {
+    state[target.dataset.testFlag] = !state[target.dataset.testFlag];
+    if (target.dataset.testFlag === 'smsCampusEnabled' && !state.smsCampusEnabled && state.notificationManagerVersion === 'channels' && !state.managerEmailAdded) setManagerExistingChannel('email');
+    return render();
+  }
   if (target.dataset.notificationChannel) {
     preserveFormDrafts();
     if (target.dataset.notificationChannel === 'sms') state.notificationSmsSelected = !state.notificationSmsSelected;
@@ -741,6 +1017,73 @@ app.addEventListener('click', event => {
     }
     case 'open-settings': preserveFormDrafts(); state.settingsOpen = true; return render();
     case 'close-settings': state.settingsOpen = false; return render();
+    case 'preview-profile': state.settingsOpen = false; return go('profile');
+    case 'preview-qr':
+      state.settingsOpen = false;
+      state.qrSheetOpen = true;
+      if (state.screen !== 'home') return go('home');
+      return render();
+    case 'manager-add-channel':
+      if (target.dataset.channel === 'sms' && !state.smsCampusEnabled) return;
+      Object.assign(state, { channelSetupOpen: true, channelSetupStage: 'contact', channelSetupType: target.dataset.channel, channelSetupContact: '', channelSetupOtp: '', channelSetupError: '', channelSetupMessage: '', managerNotice: '' });
+      return renderAndFocus('#manager-channel-contact');
+    case 'manager-close-channel':
+      Object.assign(state, { channelSetupOpen: false, channelSetupStage: 'contact', channelSetupType: '', channelSetupContact: '', channelSetupOtp: '', channelSetupError: '', channelSetupMessage: '' });
+      return render();
+    case 'manager-send-channel-code': {
+      const input = document.querySelector('#manager-channel-contact');
+      const rawValue = input?.value.trim() || '';
+      const isSms = state.channelSetupType === 'sms';
+      const normalized = isSms ? rawValue.replace(/\D/g, '') : rawValue;
+      const valid = isSms ? normalized.length === 10 : isValidEmail(normalized);
+      if (!valid) {
+        state.channelSetupError = isSms ? 'Enter a valid 10-digit mobile number.' : 'Enter a valid email address.';
+        return renderAndFocus('#manager-channel-contact');
+      }
+      state.channelSetupContact = normalized;
+      state.channelSetupOtp = '';
+      state.channelSetupError = '';
+      state.channelSetupMessage = '';
+      state.channelSetupStage = 'otp';
+      return renderAndFocus('#manager-channel-otp');
+    }
+    case 'manager-verify-channel': {
+      const input = document.querySelector('#manager-channel-otp');
+      const digits = (input?.value || '').replace(/\D/g, '');
+      if (digits.length !== 6) {
+        state.channelSetupError = 'Enter the complete 6-digit code.';
+        return renderAndFocus('#manager-channel-otp');
+      }
+      if (!state.otpEntryCorrect) {
+        state.channelSetupError = 'That code is incorrect. Try again.';
+        return renderAndFocus('#manager-channel-otp');
+      }
+      state.channelSetupOtp = digits;
+      if (state.channelSetupType === 'sms') {
+        state.managerSmsAdded = true;
+        state.managerPhone = state.channelSetupContact;
+      } else {
+        state.managerEmailAdded = true;
+        state.managerEmail = state.channelSetupContact;
+      }
+      managerEvents.forEach(item => { state.notificationPreferences[item.key][state.channelSetupType] = true; });
+      state.managerDirty = true;
+      state.managerSaved = false;
+      state.channelSetupError = '';
+      state.channelSetupMessage = '';
+      state.channelSetupStage = 'success';
+      return render();
+    }
+    case 'manager-resend-channel':
+      state.channelSetupError = '';
+      state.channelSetupMessage = `A new code was sent to ${state.channelSetupType === 'sms' ? formatPhone(state.channelSetupContact) : state.channelSetupContact}.`;
+      return renderAndFocus('#manager-channel-otp');
+    case 'manager-save':
+      if (!managerAllRequiredCovered()) return;
+      state.managerDirty = false;
+      state.managerSaved = true;
+      state.managerNotice = 'Notification preferences saved.';
+      return render();
     case 'close-sheet': state.sheet = null; return render();
     case 'terms': state.acceptedTerms = !state.acceptedTerms; return render();
     case 'terms-link': return;
@@ -830,11 +1173,38 @@ app.addEventListener('click', event => {
       state.email = email.value; state.name = name.value; state.password = password.value;
       return continueAfterIdentity();
     }
-    case 'checkout': target.textContent = 'Scanner opened'; target.disabled = true; return;
+    case 'checkout': state.qrSheetOpen = true; return render();
+    case 'qr-close': state.qrSheetOpen = false; return render();
+    case 'wallet-open': state.walletStage = 'sheet'; return render();
+    case 'wallet-cancel': state.walletStage = ''; return render();
+    case 'wallet-confirm':
+      state.passAdded = true;
+      state.walletStage = 'added';
+      return render();
+    case 'wallet-finish': state.walletStage = ''; return render();
+    case 'wallet-view': return;
   }
 });
 
 app.addEventListener('input', event => {
+  if (event.target.id === 'manager-channel-contact') {
+    if (state.channelSetupType === 'sms') {
+      state.channelSetupContact = event.target.value.replace(/\D/g, '').slice(0, 10);
+      event.target.value = formatPhone(state.channelSetupContact);
+    } else {
+      state.channelSetupContact = event.target.value;
+    }
+    state.channelSetupError = '';
+    state.channelSetupMessage = '';
+    return;
+  }
+  if (event.target.id === 'manager-channel-otp') {
+    state.channelSetupOtp = event.target.value.replace(/\D/g, '').slice(0, 6);
+    event.target.value = state.channelSetupOtp;
+    state.channelSetupError = '';
+    state.channelSetupMessage = '';
+    return;
+  }
   if (event.target.id === 'account-lookup-phone') {
     event.target.value = formatPhone(event.target.value);
     return;
@@ -859,11 +1229,18 @@ app.addEventListener('input', event => {
 });
 
 resetButton.addEventListener('click', () => {
-  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', sheet:null });
+  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', notificationManagerVersion:'controls', managerExistingChannel:'email', smsCampusEnabled:true, managerEmailAdded:true, managerSmsAdded:false, managerEmail:'owen@usefull.us', managerPhone:'', managerDirty:false, managerSaved:false, managerNotice:'', channelSetupOpen:false, channelSetupStage:'contact', channelSetupType:'', channelSetupContact:'', channelSetupOtp:'', channelSetupError:'', channelSetupMessage:'', qrSheetOpen:false, walletStage:'', passAdded:false, walletAvailable:true, qrCopyVariant:'scanner', notificationPreferences:freshNotificationPreferences(), sheet:null });
   render();
 });
 
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && state.walletStage) { state.walletStage = ''; render(); return; }
+  if (event.key === 'Escape' && state.qrSheetOpen) { state.qrSheetOpen = false; render(); return; }
+  if (event.key === 'Escape' && state.channelSetupOpen) {
+    Object.assign(state, { channelSetupOpen: false, channelSetupStage: 'contact', channelSetupType: '', channelSetupContact: '', channelSetupOtp: '', channelSetupError: '', channelSetupMessage: '' });
+    render();
+    return;
+  }
   if (event.key.toLowerCase() !== 'h' || event.metaKey || event.ctrlKey || event.altKey || event.target.matches('input, textarea')) return;
   state.testerHidden = !state.testerHidden;
   state.settingsOpen = false;
