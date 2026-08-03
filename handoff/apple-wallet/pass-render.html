@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #1c1c1e;
+    padding: 60px;
+    display: flex;
+    gap: 60px;
+    align-items: flex-start;
+  }
+  .stage { position: relative; }
+
+  /* 375pt pass rendered at 3x = 1125px */
+  .pass {
+    width: 1125px;
+    border-radius: 30px;
+    overflow: hidden;
+    background: #00979d;
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    position: relative;
+  }
+
+  .pass-header {
+    height: 168px;
+    padding: 0 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  /* logo.png allotment is 160x50pt; wordmark is 4:1 so 160x40pt = 480x120px @3x */
+  .pass-header img { width: 480px; height: 120px; display: block; }
+
+  .strip { height: 369px; overflow: hidden; }
+  .strip img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 64%; display: block; }
+
+  .secondary {
+    padding: 42px 45px 30px;
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+  }
+  .secondary .label {
+    color: rgba(255,255,255,.88);
+    font-size: 31px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .secondary .value {
+    color: #fff;
+    font-size: 62px;
+    font-weight: 400;
+    letter-spacing: -.01em;
+  }
+
+  .barcode-area {
+    padding: 12px 45px 48px;
+    display: grid;
+    justify-items: center;
+  }
+  .barcode-box {
+    background: #fff;
+    border-radius: 18px;
+    padding: 24px;
+    width: 420px;
+    height: 420px;
+  }
+  .barcode-box svg { display: block; width: 100%; height: 100%; color: #000; }
+
+  .info-dot {
+    position: absolute;
+    right: 36px;
+    bottom: 30px;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.5);
+    color: rgba(255,255,255,.7);
+    display: grid; place-items: center;
+    font-size: 26px; font-style: italic; font-weight: 600;
+    font-family: Georgia, serif;
+  }
+
+  /* annotation layer */
+  .annot { position: absolute; display: flex; align-items: center; gap: 14px; }
+  .annot .line { height: 3px; background: #ffd60a; }
+  .annot .tag {
+    background: #ffd60a; color: #1c1c1e;
+    font-size: 26px; font-weight: 700;
+    padding: 10px 18px; border-radius: 8px;
+    white-space: nowrap;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .annot .tag small { display: block; font-family: -apple-system, Helvetica, sans-serif; font-weight: 500; font-size: 21px; opacity: .72; }
+  .annot.right { flex-direction: row; }
+
+  .legend { color: #fff; width: 760px; padding-top: 20px; }
+  .legend h2 { font-size: 40px; margin-bottom: 8px; }
+  .legend p.sub { color: #98989d; font-size: 26px; margin-bottom: 34px; }
+  .legend .row { display: flex; gap: 18px; margin-bottom: 26px; align-items: flex-start; }
+  .legend .swatch { flex: 0 0 20px; height: 20px; border-radius: 4px; margin-top: 8px; }
+  .legend .s-asset { background: #ffd60a; }
+  .legend .s-wallet { background: #30d158; }
+  .legend .s-json { background: #64d2ff; }
+  .legend .row strong { font-size: 28px; display: block; margin-bottom: 4px; }
+  .legend .row span { color: #98989d; font-size: 24px; line-height: 1.45; }
+  .legend code { font-family: "SF Mono", ui-monospace, Menlo, monospace; color: #fff; background: rgba(255,255,255,.1); padding: 2px 8px; border-radius: 5px; font-size: 22px; }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="pass" id="pass">
+      <div class="pass-header">
+        <img src="../../branding/USEFULL-icons/USEFULL-Logo-Registered_KnockOut.svg" alt="USEFULL" />
+      </div>
+      <div class="strip"><img src="../../images/outdoor-containers.png" alt="" /></div>
+      <div class="secondary">
+        <div class="label">Reusing since</div>
+        <div class="value">Aug 15, 2025</div>
+      </div>
+      <div class="barcode-area">
+        <div class="barcode-box" id="barcodeBox"></div>
+      </div>
+      <div class="info-dot">i</div>
+    </div>
+  </div>
+</body>
+<script>
+function qrSvg(seed) {
+  const size = 25;
+  let s = seed;
+  const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const inFinderMargin = (x, y) => (x < 8 && y < 8) || (x >= size - 8 && y < 8) || (x < 8 && y >= size - 8);
+  let m = '';
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (inFinderMargin(x, y)) continue;
+    if (rand() > 0.5) m += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  const f = (fx, fy) => `<path d="M${fx} ${fy}h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1"/><rect x="${fx+2}" y="${fy+2}" width="3" height="3"/>`;
+  return `<svg viewBox="0 0 ${size} ${size}"><g fill="currentColor" shape-rendering="crispEdges">${m}${f(0,0)}${f(size-7,0)}${f(0,size-7)}</g></svg>`;
+}
+document.getElementById('barcodeBox').innerHTML = qrSvg(20250815);
+</script>
+</html>

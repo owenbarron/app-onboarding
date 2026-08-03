@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #333; font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+
+  /* iPhone screen: 390 x 844 pt at 3x */
+  .screen { width: 1170px; height: 2532px; background: #000; position: relative; overflow: hidden; }
+
+  .status { height: 162px; padding: 54px 96px 0; display: flex; align-items: flex-start; justify-content: space-between; color: #fff; }
+  .status .time { font-size: 51px; font-weight: 600; letter-spacing: -.5px; }
+  .status .right { display: flex; align-items: center; gap: 16px; padding-top: 8px; }
+  .bars { display: flex; align-items: flex-end; gap: 5px; height: 32px; }
+  .bars i { width: 9px; background: #fff; border-radius: 3px; display: block; }
+  .bars i:nth-child(1) { height: 12px; } .bars i:nth-child(2) { height: 19px; }
+  .bars i:nth-child(3) { height: 26px; } .bars i:nth-child(4) { height: 32px; }
+  .wifi { width: 42px; height: 30px; position: relative; }
+  .wifi span { position: absolute; left: 50%; transform: translateX(-50%); border: 5px solid #fff; border-bottom-color: transparent; border-left-color: transparent; border-right-color: transparent; border-radius: 50%; }
+  .wifi span:nth-child(1) { width: 42px; height: 42px; top: 0; }
+  .wifi span:nth-child(2) { width: 26px; height: 26px; top: 8px; }
+  .wifi span:nth-child(3) { width: 11px; height: 11px; top: 17px; }
+  .batt { width: 68px; height: 32px; border: 4px solid rgba(255,255,255,.65); border-radius: 10px; position: relative; padding: 3px; }
+  .batt::after { content:''; position:absolute; right:-9px; top:10px; width:5px; height:12px; background:rgba(255,255,255,.65); border-radius:0 3px 3px 0; }
+  .batt i { display:block; height:100%; width:72%; background:#fff; border-radius:5px; }
+
+  .wallet-nav { padding: 20px 84px 0; display: flex; align-items: center; justify-content: space-between; }
+  .wallet-nav .back { color: #ff9f0a; font-size: 52px; font-weight: 400; }
+  .wallet-nav .more { width: 88px; height: 88px; border-radius: 50%; background: rgba(255,255,255,.16); display: grid; place-items: center; color: #fff; font-size: 46px; font-weight: 700; letter-spacing: 2px; padding-bottom: 18px; }
+
+  .pass-wrap { margin: 44px auto 0; width: 1050px; }
+  .pass { width: 1125px; zoom: .9333; border-radius: 32px; overflow: hidden; background: #00979d; box-shadow: 0 24px 60px rgba(0,0,0,.6); position: relative; }
+
+  .pass-header { height: 168px; padding: 0 42px; display: flex; align-items: center; }
+  /* logo.png allotment is 160x50pt; wordmark is 4:1 so 160x40pt = 480x120px @3x */
+  .pass-header img { width: 480px; height: 120px; display: block; }
+
+  .strip { height: 369px; overflow: hidden; }
+  .strip img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 64%; display: block; }
+  .secondary { padding: 42px 45px 30px; display: grid; justify-items: center; gap: 10px; }
+  .secondary .label { color: rgba(255,255,255,.88); font-size: 31px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+  .secondary .value { color: #fff; font-size: 62px; font-weight: 400; letter-spacing: -.01em; }
+  .barcode-area { padding: 12px 45px 48px; display: grid; justify-items: center; }
+  .barcode-box { background:#fff; border-radius:18px; padding:24px; width:420px; height:420px; }
+  .barcode-box svg { display:block; width:100%; height:100%; color:#000; }
+  .info-dot { position:absolute; right:36px; bottom:30px; width:42px; height:42px; border-radius:50%; border:3px solid rgba(255,255,255,.5); color:rgba(255,255,255,.7); display:grid; place-items:center; font-size:26px; font-style:italic; font-weight:600; font-family:Georgia, serif; }
+
+  .stack { width: 1050px; margin: 34px auto 0; }
+  .stack .card { height: 190px; border-radius: 32px; margin-top: -108px; box-shadow: 0 -10px 30px rgba(0,0,0,.55); position: relative; border-top: 1px solid rgba(255,255,255,.09); }
+  .stack .card:first-child { margin-top: 0; }
+  .stack .card:nth-child(1) { background: linear-gradient(150deg, #4a4a4c, #2c2c2e); }
+  .stack .card:nth-child(2) { background: linear-gradient(150deg, #6b5a48, #3d332a); }
+  .stack .card:nth-child(3) { background: linear-gradient(150deg, #2f4858, #1e2f3a); }
+  .stack .card:nth-child(4) { background: linear-gradient(150deg, #5a5a5c, #3a3a3c); }
+  .stack .card .chip { position:absolute; left:44px; top:38px; width:130px; height:24px; border-radius:12px; background:rgba(255,255,255,.2); }
+
+  .home-indicator { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: 400px; height: 15px; border-radius: 10px; background: rgba(255,255,255,.55); z-index: 10; }
+</style>
+</head>
+<body>
+  <div class="screen">
+    <div class="status">
+      <div class="time">4:10</div>
+      <div class="right">
+        <div class="bars"><i></i><i></i><i></i><i></i></div>
+        <div class="wifi"><span></span><span></span><span></span></div>
+        <div class="batt"><i></i></div>
+      </div>
+    </div>
+
+    <div class="wallet-nav">
+      <div class="back">&lsaquo;</div>
+      <div class="more">•••</div>
+    </div>
+
+    <div class="pass-wrap">
+      <div class="pass">
+        <div class="pass-header">
+          <img src="../../branding/USEFULL-icons/USEFULL-Logo-Registered_KnockOut.svg" alt="USEFULL" />
+        </div>
+        <div class="strip"><img src="../../images/outdoor-containers.png" alt="" /></div>
+        <div class="secondary">
+          <div class="label">Reusing since</div>
+          <div class="value">Aug 15, 2025</div>
+        </div>
+        <div class="barcode-area"><div class="barcode-box" id="barcodeBox"></div></div>
+        <div class="info-dot">i</div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card"><div class="chip"></div></div>
+      <div class="card"><div class="chip"></div></div>
+      <div class="card"><div class="chip"></div></div>
+      <div class="card"><div class="chip"></div></div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</body>
+<script>
+function qrSvg(seed) {
+  const size = 25; let s = seed;
+  const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const skip = (x, y) => (x < 8 && y < 8) || (x >= size-8 && y < 8) || (x < 8 && y >= size-8);
+  let m = '';
+  for (let y=0; y<size; y++) for (let x=0; x<size; x++) {
+    if (skip(x,y)) continue;
+    if (rand() > 0.5) m += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  const f = (fx,fy) => `<path d="M${fx} ${fy}h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1"/><rect x="${fx+2}" y="${fy+2}" width="3" height="3"/>`;
+  return `<svg viewBox="0 0 ${size} ${size}"><g fill="currentColor" shape-rendering="crispEdges">${m}${f(0,0)}${f(size-7,0)}${f(0,size-7)}</g></svg>`;
+}
+document.getElementById('barcodeBox').innerHTML = qrSvg(20250815);
+</script>
+</html>
