@@ -72,6 +72,7 @@ const state = {
   channelSetupMessage: '',
   qrSheetOpen: false,
   walletStage: '',
+  walletViewOpen: false,
   passAdded: false,
   walletAvailable: true,
   qrCopyVariant: 'scanner',
@@ -703,7 +704,7 @@ function renderNotificationSettings() {
   </section>`;
 }
 
-function qrSvg(scale = 1, seed = 20250815) {
+function qrSvg(scale = 1, seed = 20250815, withLogo = true) {
   const size = 25;
   let s = seed;
   const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
@@ -713,14 +714,14 @@ function qrSvg(scale = 1, seed = 20250815) {
   const modules = [];
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      if (inFinderMargin(x, y) || inLogo(x, y)) continue;
+      if (inFinderMargin(x, y) || (withLogo && inLogo(x, y))) continue;
       if (rand() > 0.52) modules.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
     }
   }
   const finder = (fx, fy) => `<path d="M${fx} ${fy}h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1"/><rect x="${fx + 2}" y="${fy + 2}" width="3" height="3"/>`;
   return `<svg class="qr-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Your USEFULL QR code" style="--qr-scale:${scale}">
     <g fill="currentColor" shape-rendering="crispEdges">${modules.join('')}${finder(0, 0)}${finder(size - 7, 0)}${finder(0, size - 7)}</g>
-    <image href="branding/USEFULL-icons/USEFULL-Icon-Registered_Color.svg" x="10.1" y="10.9" width="4.8" height="3.4" preserveAspectRatio="xMidYMid meet"/>
+    ${withLogo ? '<image href="branding/USEFULL-icons/USEFULL-Icon-Registered_Color.svg" x="10.1" y="10.9" width="4.8" height="3.4" preserveAspectRatio="xMidYMid meet"/>' : ''}
   </svg>`;
 }
 
@@ -729,7 +730,7 @@ function renderWalletPass() {
     <header class="wallet-pass-head"><img src="branding/USEFULL-icons/USEFULL-Logo-Registered_KnockOut.svg" alt="USEFULL" /></header>
     <div class="wallet-pass-strip"><img src="images/outdoor-containers.png" alt="" /></div>
     <div class="wallet-pass-field"><span>Reusing since</span><strong>${escapeHTML(state.reusingSince)}</strong></div>
-    <div class="wallet-pass-qr">${qrSvg(1, 90210)}</div>
+    <div class="wallet-pass-qr">${qrSvg(1, 90210, false)}</div>
   </article>`;
 }
 
@@ -770,7 +771,8 @@ function renderWalletFlow() {
         <span class="wallet-done-check" aria-hidden="true">✓</span>
         <h2 id="wallet-done-title">Added to Apple Wallet</h2>
         <p>Find your USEFULL QR in the Wallet app any time.</p>
-        <button class="button button-teal" data-action="wallet-finish" type="button">Done</button>
+        <button class="button button-teal" data-action="wallet-view" type="button">View in Wallet</button>
+        <button class="wallet-done-secondary" data-action="wallet-finish" type="button">Done</button>
       </section>`;
   }
   return `<div class="modal-backdrop wallet-backdrop"></div>
@@ -782,6 +784,21 @@ function renderWalletFlow() {
       </header>
       <div class="wallet-sheet-body">${renderWalletPass()}</div>
     </section>`;
+}
+
+function renderWalletView() {
+  if (!state.walletViewOpen) return '';
+  const otherCards = ['card-a', 'card-b', 'card-c'].map(cls => `<div class="wv-card ${cls}"><span></span></div>`).join('');
+  return `<section class="wallet-view" role="dialog" aria-modal="true" aria-label="Apple Wallet">
+    <div class="wv-status" aria-hidden="true"><span>4:10</span><span class="wv-status-icons"><i class="ph ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph ph-battery-high"></i></span></div>
+    <header class="wv-nav">
+      <button class="wv-back" data-action="wallet-view-close" type="button" aria-label="Back to USEFULL">‹</button>
+      <span class="wv-more" aria-hidden="true">•••</span>
+    </header>
+    <div class="wv-pass">${renderWalletPass()}</div>
+    <div class="wv-stack" aria-hidden="true">${otherCards}</div>
+    <p class="wv-hint">Simulated Apple Wallet — tap ‹ to return to the USEFULL app</p>
+  </section>`;
 }
 
 function renderSheet() {
@@ -820,7 +837,7 @@ function render() {
     profile: renderProfile,
     notificationManager: renderNotificationManager
   };
-  app.innerHTML = views[state.screen]() + renderSettings() + renderConsent() + renderQrSheet() + renderWalletFlow();
+  app.innerHTML = views[state.screen]() + renderSettings() + renderConsent() + renderQrSheet() + renderWalletFlow() + renderWalletView();
 }
 
 function renderAndFocus(selector) {
@@ -1182,7 +1199,11 @@ app.addEventListener('click', event => {
       state.walletStage = 'added';
       return render();
     case 'wallet-finish': state.walletStage = ''; return render();
-    case 'wallet-view': return;
+    case 'wallet-view':
+      state.walletStage = '';
+      state.walletViewOpen = true;
+      return render();
+    case 'wallet-view-close': state.walletViewOpen = false; return render();
   }
 });
 
@@ -1229,11 +1250,12 @@ app.addEventListener('input', event => {
 });
 
 resetButton.addEventListener('click', () => {
-  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', notificationManagerVersion:'controls', managerExistingChannel:'email', smsCampusEnabled:true, managerEmailAdded:true, managerSmsAdded:false, managerEmail:'owen@usefull.us', managerPhone:'', managerDirty:false, managerSaved:false, managerNotice:'', channelSetupOpen:false, channelSetupStage:'contact', channelSetupType:'', channelSetupContact:'', channelSetupOtp:'', channelSetupError:'', channelSetupMessage:'', qrSheetOpen:false, walletStage:'', passAdded:false, walletAvailable:true, qrCopyVariant:'scanner', notificationPreferences:freshNotificationPreferences(), sheet:null });
+  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', notificationManagerVersion:'controls', managerExistingChannel:'email', smsCampusEnabled:true, managerEmailAdded:true, managerSmsAdded:false, managerEmail:'owen@usefull.us', managerPhone:'', managerDirty:false, managerSaved:false, managerNotice:'', channelSetupOpen:false, channelSetupStage:'contact', channelSetupType:'', channelSetupContact:'', channelSetupOtp:'', channelSetupError:'', channelSetupMessage:'', qrSheetOpen:false, walletStage:'', walletViewOpen:false, passAdded:false, walletAvailable:true, qrCopyVariant:'scanner', notificationPreferences:freshNotificationPreferences(), sheet:null });
   render();
 });
 
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && state.walletViewOpen) { state.walletViewOpen = false; render(); return; }
   if (event.key === 'Escape' && state.walletStage) { state.walletStage = ''; render(); return; }
   if (event.key === 'Escape' && state.qrSheetOpen) { state.qrSheetOpen = false; render(); return; }
   if (event.key === 'Escape' && state.channelSetupOpen) {

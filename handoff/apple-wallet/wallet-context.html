@@ -36,11 +36,12 @@
   /* logo.png allotment is 160x50pt; wordmark is 4:1 so 160x40pt = 480x120px @3x */
   .pass-header img { width: 480px; height: 120px; display: block; }
 
-  .strip { height: 369px; overflow: hidden; }
-  .strip img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 64%; display: block; }
+  /* strip.png at the taller 375x144pt allotment = 1125x432 @3x */
+  .strip { height: 432px; overflow: hidden; }
+  .strip img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.3); transform-origin: 46% 82%; }
   .secondary { padding: 42px 45px 30px; display: grid; justify-items: center; gap: 10px; }
-  .secondary .label { color: rgba(255,255,255,.88); font-size: 31px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
-  .secondary .value { color: #fff; font-size: 62px; font-weight: 400; letter-spacing: -.01em; }
+  .secondary .label { color: rgba(255,255,255,.88); font-size: 36px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+  .secondary .value { color: #fff; font-size: 76px; font-weight: 400; letter-spacing: -.01em; }
   .barcode-area { padding: 12px 45px 48px; display: grid; justify-items: center; }
   .barcode-box { background:#fff; border-radius:18px; padding:24px; width:420px; height:420px; }
   .barcode-box svg { display:block; width:100%; height:100%; color:#000; }
