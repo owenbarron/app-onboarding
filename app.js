@@ -71,10 +71,15 @@ const state = {
   channelSetupError: '',
   channelSetupMessage: '',
   qrSheetOpen: false,
+  promoteWalletOverInAppQr: true,
+  walletPlatform: 'apple',
+  walletPromptCompleted: false,
+  walletOnboardingNext: 'home',
   walletStage: '',
   walletViewOpen: false,
   passAdded: false,
   walletAvailable: true,
+  qrFallbackVisible: false,
   qrCopyVariant: 'scanner',
   reusingSince: 'Aug 15, 2025',
   notificationPreferences: {
@@ -181,6 +186,22 @@ function canSaveNotificationSettings() {
   const emailValid = !state.notificationEmailSelected || isValidEmail(state.notificationEmail);
   const phoneValid = !state.notificationPhoneSelected || state.notificationPhone.replace(/\D/g, '').length === 10;
   return emailValid && phoneValid;
+}
+
+function walletName() {
+  return state.walletPlatform === 'google' ? 'Google Wallet' : 'Apple Wallet';
+}
+
+function showFirstUseWallet(nextScreen = 'home') {
+  if (state.promoteWalletOverInAppQr && !state.walletPromptCompleted) {
+    state.walletOnboardingNext = nextScreen;
+    return go('walletOnboarding');
+  }
+  return go(nextScreen);
+}
+
+function enterHomeAfterFirstUse() {
+  return showFirstUseWallet('home');
 }
 
 function continueAfterIdentity() {
@@ -507,7 +528,7 @@ function renderConfirm() {
   return `<div class="screen ${showStepper ? '' : 'confirm-screen-simple'}">${statusBar()}${showStepper ? progressHeader(4) : backHeader()}
     <section class="card confirm-card"><h2>Confirm your payment method</h2>
       <div class="summary"><div class="summary-row"><span>Community</span><strong>${state.community}</strong></div><div class="summary-row"><span>Payment</span><strong>${state.payment}</strong></div></div>
-      <div class="button-row"><button class="button button-muted" data-action="back" type="button"><span class="arrow">‹</span> Back</button><button class="button button-primary" data-go="success" type="button">Confirm <span class="arrow">›</span></button></div>
+      <div class="button-row"><button class="button button-muted" data-action="back" type="button"><span class="arrow">‹</span> Back</button><button class="button button-primary" data-action="finish-payment" type="button">Confirm <span class="arrow">›</span></button></div>
     </section></div>`;
 }
 
@@ -518,6 +539,31 @@ function renderSuccess() {
       <p class="welcome-emphasis">Please check your confirmation email for more details!</p>
       <button class="button button-teal" data-go="home" type="button">Start re-using!</button>
     </section>`;
+}
+
+function renderWalletAddButton() {
+  if (state.passAdded) {
+    return `<div class="wallet-added-chip" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Added to ${walletName()}</span></div>`;
+  }
+  if (state.walletPlatform === 'google') {
+    return `<button class="wallet-add-button google-wallet-add" data-action="wallet-open" type="button"><span class="google-wallet-mark" aria-hidden="true">G</span><span class="wallet-add-label"><small>Add to</small><strong>Google Wallet</strong></span></button>`;
+  }
+  return `<button class="wallet-add-button" data-action="wallet-open" type="button"><span class="wallet-add-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="wallet-add-label"><small>Add to</small><strong>Apple Wallet</strong></span></button>`;
+}
+
+function renderWalletOnboarding() {
+  const availableAction = state.walletAvailable ? renderWalletAddButton() : '';
+  const nextButton = state.passAdded
+    ? '<button class="button button-primary wallet-onboarding-next" data-action="wallet-onboarding-complete" type="button">Continue</button>'
+    : '<button class="button button-muted wallet-onboarding-next" data-action="wallet-onboarding-complete" type="button">Skip</button>';
+  return `<div class="screen wallet-onboarding-screen">${statusBar()}${backHeader()}
+    <main class="card wallet-onboarding-card">
+      <h2>Add your USEFULL Pass</h2>
+      <p class="wallet-onboarding-lead">Use the USEFULL QR Code in your ${walletName()} to check out.</p>
+      <div class="wallet-onboarding-pass">${renderWalletPass()}</div>
+      <div class="wallet-onboarding-actions">${availableAction}${nextButton}</div>
+    </main>
+  </div>`;
 }
 
 function renderHome() {
@@ -612,12 +658,15 @@ function renderSettings() {
     ${state.settingsOpen ? `<button class="modal-backdrop settings-backdrop" data-action="close-settings" type="button" aria-label="Close prototype settings"></button>
       <aside class="tester-panel" aria-label="Prototype settings"><div class="tester-panel-header"><div><span>Test mode</span><strong>Flow scenarios</strong></div><button class="panel-close" data-action="close-settings" type="button" aria-label="Close settings">×</button></div>
         <section class="notification-test-settings"><span>Notification manager</span><div class="test-toggle" role="group" aria-label="Notification manager version"><button class="${state.notificationManagerVersion === 'controls' ? 'selected' : ''}" data-manager-version="controls" type="button"><strong>Version 1</strong><span>Control existing channels</span></button><button class="${state.notificationManagerVersion === 'channels' ? 'selected' : ''}" data-manager-version="channels" type="button"><strong>Version 2</strong><span>Add and verify channels</span></button></div>${state.notificationManagerVersion === 'channels' ? `<span class="tester-sub-label">Starts with</span><div class="test-toggle manager-existing-toggle" role="group" aria-label="Existing notification channel"><button class="${state.managerExistingChannel === 'email' ? 'selected' : ''}" data-manager-existing="email" type="button"><strong>Email</strong><span>Add SMS</span></button><button class="${state.managerExistingChannel === 'sms' ? 'selected' : ''}" data-manager-existing="sms" type="button"><strong>SMS</strong><span>Add email</span></button></div>` : ''}<button class="button button-teal tester-launch" data-action="preview-profile" type="button">Open profile</button></section>
-        <section class="notification-test-settings"><span>Checkout QR copy</span><div class="test-toggle" role="group" aria-label="QR instruction copy"><button class="${state.qrCopyVariant === 'scanner' ? 'selected' : ''}" data-qr-variant="scanner" type="button"><strong>Scanner-first</strong><span>“Put your phone face down over the scanner”</span></button><button class="${state.qrCopyVariant === 'cashier' ? 'selected' : ''}" data-qr-variant="cashier" type="button"><strong>Cashier-first</strong><span>“When directed by the cashier”</span></button></div>
+        <section class="notification-test-settings"><span>USEFULL QR &amp; Wallet</span>
+          <button class="scenario-toggle ${state.promoteWalletOverInAppQr ? 'selected' : ''}" data-test-flag="promoteWalletOverInAppQr" type="button" role="checkbox" aria-checked="${state.promoteWalletOverInAppQr}"><span class="scenario-check">${state.promoteWalletOverInAppQr ? '✓' : ''}</span><span><strong>Promote Apple Wallet over In-App QR</strong><small>On makes Wallet the primary checkout method and adds the first-use prompt.</small></span></button>
+          <span class="tester-sub-label">Device wallet</span><div class="test-toggle wallet-platform-toggle" role="group" aria-label="Device wallet platform"><button class="${state.walletPlatform === 'apple' ? 'selected' : ''}" data-wallet-platform="apple" type="button"><strong>Apple</strong><span>iPhone experience</span></button><button class="${state.walletPlatform === 'google' ? 'selected' : ''}" data-wallet-platform="google" type="button"><strong>Google</strong><span>Android experience</span></button></div>
+          ${state.promoteWalletOverInAppQr ? '' : `<span class="tester-sub-label">Legacy QR copy</span><div class="test-toggle" role="group" aria-label="QR instruction copy"><button class="${state.qrCopyVariant === 'scanner' ? 'selected' : ''}" data-qr-variant="scanner" type="button"><strong>Scanner-first</strong><span>“Put your phone face down over the scanner”</span></button><button class="${state.qrCopyVariant === 'cashier' ? 'selected' : ''}" data-qr-variant="cashier" type="button"><strong>Cashier-first</strong><span>“When directed by the cashier”</span></button></div>`}
           <div class="scenario-toggles">
-            <button class="scenario-toggle ${state.walletAvailable ? 'selected' : ''}" data-test-flag="walletAvailable" type="button" role="checkbox" aria-checked="${state.walletAvailable}"><span class="scenario-check">${state.walletAvailable ? '✓' : ''}</span><span><strong>Apple Wallet available</strong><small>Off hides the Add button (Android or no Wallet).</small></span></button>
-            <button class="scenario-toggle ${state.passAdded ? 'selected' : ''}" data-test-flag="passAdded" type="button" role="checkbox" aria-checked="${state.passAdded}"><span class="scenario-check">${state.passAdded ? '✓' : ''}</span><span><strong>Pass already added</strong><small>Jump straight to the post-add copy.</small></span></button>
+            <button class="scenario-toggle ${state.walletAvailable ? 'selected' : ''}" data-test-flag="walletAvailable" type="button" role="checkbox" aria-checked="${state.walletAvailable}"><span class="scenario-check">${state.walletAvailable ? '✓' : ''}</span><span><strong>${walletName()} available</strong><small>Off simulates an older or unsupported phone.</small></span></button>
+            <button class="scenario-toggle ${state.passAdded ? 'selected' : ''}" data-test-flag="passAdded" type="button" role="checkbox" aria-checked="${state.passAdded}"><span class="scenario-check">${state.passAdded ? '✓' : ''}</span><span><strong>Pass already added</strong><small>Show the post-add state.</small></span></button>
           </div>
-          <button class="button button-teal tester-launch" data-action="preview-qr" type="button">Open USEFULL QR</button></section>
+          <button class="button button-teal tester-launch" data-action="preview-qr" type="button">Open My USEFULL QR</button></section>
         <div class="test-toggle" role="group" aria-label="SMS user type">
           <button class="${state.testUserType === 'new' ? 'selected' : ''}" data-test-user="new" type="button"><strong>New user</strong><span>OTP → consent → profile</span></button>
           <button class="${state.testUserType === 'returning' ? 'selected' : ''}" data-test-user="returning" type="button"><strong>Returning</strong><span>OTP → signed in</span></button>
@@ -747,11 +796,36 @@ const qrCopy = {
 
 function renderQrSheet() {
   if (!state.qrSheetOpen) return '';
+  if (state.promoteWalletOverInAppQr) {
+    const showQr = state.qrFallbackVisible || !state.walletAvailable;
+    if (showQr) {
+      return `<div class="modal-backdrop qr-backdrop"></div>
+        <section class="qr-modal wallet-qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+          <button class="qr-close" data-action="qr-close" type="button" aria-label="Close">×</button>
+          <h2 id="qr-title">My USEFULL QR</h2>
+          <p class="wallet-qr-lead"><strong>No ${walletName()}?</strong> <span>Use this QR code at checkout.</span></p>
+          <div class="qr-frame">${qrSvg(1, 20250815)}</div>
+          ${state.walletAvailable ? `<button class="wallet-fallback-link wallet-return-link" data-action="use-wallet-instead" type="button">Use ${walletName()} instead</button>` : ''}
+        </section>`;
+    }
+    const availableAction = renderWalletAddButton();
+    return `<div class="modal-backdrop qr-backdrop"></div>
+      <section class="qr-modal wallet-first-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+        <button class="qr-close" data-action="qr-close" type="button" aria-label="Close">×</button>
+        <h2 id="qr-title">My USEFULL QR</h2>
+        <div class="checkout-wallet-copy">
+          <p>Add your USEFULL QR code to ${walletName()}.</p>
+          <p>Then pull up your pass to check out!</p>
+        </div>
+        <div class="wallet-first-action">${availableAction}</div>
+        <button class="wallet-fallback-link" data-action="show-qr-fallback" type="button">I don’t have ${walletName()}</button>
+      </section>`;
+  }
   const copy = qrCopy[state.qrCopyVariant] || qrCopy.scanner;
   const walletRow = !state.walletAvailable
     ? ''
     : state.passAdded
-      ? `<button class="wallet-added-chip" data-action="wallet-view" type="button"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Added to Apple Wallet</span></button>`
+      ? `<div class="wallet-added-chip" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Added to Apple Wallet</span></div>`
       : `<button class="wallet-add-button" data-action="wallet-open" type="button"><span class="wallet-add-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="wallet-add-label"><small>Add to</small><strong>Apple Wallet</strong></span></button>`;
   return `<div class="modal-backdrop qr-backdrop"></div>
     <section class="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
@@ -765,22 +839,12 @@ function renderQrSheet() {
 
 function renderWalletFlow() {
   if (!state.walletStage) return '';
-  if (state.walletStage === 'added') {
-    return `<div class="modal-backdrop wallet-backdrop"></div>
-      <section class="wallet-done" role="dialog" aria-modal="true" aria-labelledby="wallet-done-title">
-        <span class="wallet-done-check" aria-hidden="true">✓</span>
-        <h2 id="wallet-done-title">Added to Apple Wallet</h2>
-        <p>Find your USEFULL QR in the Wallet app any time.</p>
-        <button class="button button-teal" data-action="wallet-view" type="button">View in Wallet</button>
-        <button class="wallet-done-secondary" data-action="wallet-finish" type="button">Done</button>
-      </section>`;
-  }
   return `<div class="modal-backdrop wallet-backdrop"></div>
-    <section class="wallet-sheet" role="dialog" aria-modal="true" aria-labelledby="wallet-sheet-title">
+    <section class="wallet-sheet ${state.walletPlatform === 'google' ? 'google-wallet-sheet' : ''}" role="dialog" aria-modal="true" aria-labelledby="wallet-sheet-title">
       <header class="wallet-sheet-bar">
         <button data-action="wallet-cancel" type="button">Cancel</button>
-        <strong id="wallet-sheet-title">Add Pass</strong>
-        <button class="wallet-sheet-add" data-action="wallet-confirm" type="button">Add</button>
+        <strong id="wallet-sheet-title">${state.walletPlatform === 'google' ? 'Save to Google Wallet' : 'Add Pass'}</strong>
+        <button class="wallet-sheet-add" data-action="wallet-confirm" type="button">${state.walletPlatform === 'google' ? 'Save' : 'Add'}</button>
       </header>
       <div class="wallet-sheet-body">${renderWalletPass()}</div>
     </section>`;
@@ -789,7 +853,7 @@ function renderWalletFlow() {
 function renderWalletView() {
   if (!state.walletViewOpen) return '';
   const otherCards = ['card-a', 'card-b', 'card-c'].map(cls => `<div class="wv-card ${cls}"><span></span></div>`).join('');
-  return `<section class="wallet-view" role="dialog" aria-modal="true" aria-label="Apple Wallet">
+  return `<section class="wallet-view ${state.walletPlatform === 'google' ? 'google-wallet-view' : ''}" role="dialog" aria-modal="true" aria-label="${walletName()}">
     <div class="wv-status" aria-hidden="true"><span>4:10</span><span class="wv-status-icons"><i class="ph ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph ph-battery-high"></i></span></div>
     <header class="wv-nav">
       <button class="wv-back" data-action="wallet-view-close" type="button" aria-label="Back to USEFULL">‹</button>
@@ -797,7 +861,7 @@ function renderWalletView() {
     </header>
     <div class="wv-pass">${renderWalletPass()}</div>
     <div class="wv-stack" aria-hidden="true">${otherCards}</div>
-    <p class="wv-hint">Simulated Apple Wallet — tap ‹ to return to the USEFULL app</p>
+    <p class="wv-hint">Simulated ${walletName()} — tap ‹ to return to the USEFULL app</p>
   </section>`;
 }
 
@@ -833,6 +897,7 @@ function render() {
     payment: renderPayment,
     confirm: renderConfirm,
     success: renderSuccess,
+    walletOnboarding: renderWalletOnboarding,
     home: renderHome,
     profile: renderProfile,
     notificationManager: renderNotificationManager
@@ -887,9 +952,16 @@ app.addEventListener('click', event => {
     return render();
   }
   if (target.dataset.qrVariant) { state.qrCopyVariant = target.dataset.qrVariant; return render(); }
+  if (target.dataset.walletPlatform) {
+    state.walletPlatform = target.dataset.walletPlatform;
+    state.qrFallbackVisible = false;
+    return render();
+  }
   if (target.dataset.testUser) { state.testUserType = target.dataset.testUser; return render(); }
   if (target.dataset.testFlag) {
     state[target.dataset.testFlag] = !state[target.dataset.testFlag];
+    if (target.dataset.testFlag === 'walletAvailable') state.qrFallbackVisible = !state.walletAvailable;
+    if (target.dataset.testFlag === 'promoteWalletOverInAppQr') state.qrFallbackVisible = false;
     if (target.dataset.testFlag === 'smsCampusEnabled' && !state.smsCampusEnabled && state.notificationManagerVersion === 'channels' && !state.managerEmailAdded) setManagerExistingChannel('email');
     return render();
   }
@@ -1003,7 +1075,7 @@ app.addEventListener('click', event => {
     case 'returning-login': state.authMode = 'returning'; return go('returningLogin');
     case 'returning-email': state.authMode = 'returning'; state.returningSource = ''; return go('returningLogin');
     case 'returning-sms': state.authMode = 'returning'; state.returningSource = ''; return go('returningSms');
-    case 'returning-social': state.testUserType = 'returning'; state.name = state.name || 'Returning member'; return go('home');
+    case 'returning-social': state.testUserType = 'returning'; state.name = state.name || 'Returning member'; return enterHomeAfterFirstUse();
     case 'returning-email-continue': {
       const input = document.querySelector('#returning-email');
       const error = document.querySelector('#returning-email-error');
@@ -1018,7 +1090,7 @@ app.addEventListener('click', event => {
       state.returningPassword = input.value;
       state.testUserType = 'returning';
       state.name = state.name || 'Returning member';
-      return go('home');
+      return enterHomeAfterFirstUse();
     }
     case 'returning-send-otp': {
       const input = document.querySelector('#returning-phone');
@@ -1038,6 +1110,7 @@ app.addEventListener('click', event => {
     case 'preview-qr':
       state.settingsOpen = false;
       state.qrSheetOpen = true;
+      state.qrFallbackVisible = !state.walletAvailable;
       if (state.screen !== 'home') return go('home');
       return render();
     case 'manager-add-channel':
@@ -1133,9 +1206,9 @@ app.addEventListener('click', event => {
           state.consentOpen = true;
           return render();
         }
-        return go('home');
+        return enterHomeAfterFirstUse();
       }
-      if (state.testUserType === 'returning') { state.name = state.name || 'Returning member'; return go('home'); }
+      if (state.testUserType === 'returning') { state.name = state.name || 'Returning member'; return enterHomeAfterFirstUse(); }
       state.transactionalAccepted = false;
       state.notificationContext = 'signup';
       state.consentOpen = true;
@@ -1151,13 +1224,13 @@ app.addEventListener('click', event => {
     case 'cancel-consent':
       state.consentOpen = false;
       state.transactionalAccepted = false;
-      return state.notificationContext === 'signup' ? render() : go('home');
+      return state.notificationContext === 'signup' ? render() : enterHomeAfterFirstUse();
     case 'consent-continue':
       preserveFormDrafts();
       if (state.notificationContext !== 'signup') {
         if (!canSaveNotificationSettings()) return;
         state.consentOpen = false;
-        return go('home');
+        return enterHomeAfterFirstUse();
       }
       if (!canContinueConsent()) return;
       state.transactionalAccepted = state.allowEmailNotifications ? state.notificationSmsSelected : true;
@@ -1190,15 +1263,24 @@ app.addEventListener('click', event => {
       state.email = email.value; state.name = name.value; state.password = password.value;
       return continueAfterIdentity();
     }
-    case 'checkout': state.qrSheetOpen = true; return render();
-    case 'qr-close': state.qrSheetOpen = false; return render();
+    case 'finish-payment': return showFirstUseWallet('success');
+    case 'wallet-onboarding-complete': {
+      const nextScreen = state.walletOnboardingNext || 'home';
+      state.walletPromptCompleted = true;
+      state.walletOnboardingNext = 'home';
+      state.qrFallbackVisible = false;
+      return go(nextScreen);
+    }
+    case 'checkout': state.qrSheetOpen = true; state.qrFallbackVisible = !state.walletAvailable; return render();
+    case 'qr-close': state.qrSheetOpen = false; state.qrFallbackVisible = false; return render();
+    case 'show-qr-fallback': state.qrFallbackVisible = true; return render();
+    case 'use-wallet-instead': state.qrFallbackVisible = false; return render();
     case 'wallet-open': state.walletStage = 'sheet'; return render();
     case 'wallet-cancel': state.walletStage = ''; return render();
     case 'wallet-confirm':
       state.passAdded = true;
-      state.walletStage = 'added';
+      state.walletStage = '';
       return render();
-    case 'wallet-finish': state.walletStage = ''; return render();
     case 'wallet-view':
       state.walletStage = '';
       state.walletViewOpen = true;
@@ -1250,7 +1332,7 @@ app.addEventListener('input', event => {
 });
 
 resetButton.addEventListener('click', () => {
-  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', notificationManagerVersion:'controls', managerExistingChannel:'email', smsCampusEnabled:true, managerEmailAdded:true, managerSmsAdded:false, managerEmail:'owen@usefull.us', managerPhone:'', managerDirty:false, managerSaved:false, managerNotice:'', channelSetupOpen:false, channelSetupStage:'contact', channelSetupType:'', channelSetupContact:'', channelSetupOtp:'', channelSetupError:'', channelSetupMessage:'', qrSheetOpen:false, walletStage:'', walletViewOpen:false, passAdded:false, walletAvailable:true, qrCopyVariant:'scanner', notificationPreferences:freshNotificationPreferences(), sheet:null });
+  Object.assign(state, { screen:'community', history:[], acceptedTerms:false, email:'', name:'', firstName:'', lastName:'', password:'', phone:'', otp:'', authMode:'signup', returningEmail:'', returningPassword:'', returningSource:'', accountLookupEmail:'', accountLookupPhone:'', accountLookupResult:'', returningPhoneExists:true, otpEntryCorrect:true, allowEmailNotifications:true, notificationSmsSelected:true, notificationEmailSelected:false, notificationEmail:'', notificationPhoneSelected:false, notificationPhone:'', notificationContext:'signup', transactionalAccepted:false, consentOpen:false, settingsOpen:false, affiliation:'Student', graduationYear:'', payment:'', notificationManagerVersion:'controls', managerExistingChannel:'email', smsCampusEnabled:true, managerEmailAdded:true, managerSmsAdded:false, managerEmail:'owen@usefull.us', managerPhone:'', managerDirty:false, managerSaved:false, managerNotice:'', channelSetupOpen:false, channelSetupStage:'contact', channelSetupType:'', channelSetupContact:'', channelSetupOtp:'', channelSetupError:'', channelSetupMessage:'', qrSheetOpen:false, promoteWalletOverInAppQr:true, walletPlatform:'apple', walletPromptCompleted:false, walletOnboardingNext:'home', walletStage:'', walletViewOpen:false, passAdded:false, walletAvailable:true, qrFallbackVisible:false, qrCopyVariant:'scanner', notificationPreferences:freshNotificationPreferences(), sheet:null });
   render();
 });
 
